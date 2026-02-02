@@ -1,0 +1,211 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>FinnTrack - Traccar Setup Instructions</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+      line-height: 1.6;
+    }
+    .header {
+      background: #007bff;
+      color: white;
+      padding: 20px;
+      border-radius: 8px;
+      margin-bottom: 30px;
+      text-align: center;
+    }
+    .step {
+      background: #f8f9fa;
+      padding: 20px;
+      margin: 20px 0;
+      border-radius: 8px;
+      border-left: 4px solid #007bff;
+    }
+    .step h3 {
+      color: #007bff;
+      margin-top: 0;
+    }
+    .config-box {
+      background: #e9ecef;
+      padding: 15px;
+      border-radius: 4px;
+      font-family: monospace;
+      margin: 10px 0;
+      border: 2px dashed #6c757d;
+    }
+    .warning {
+      background: #fff3cd;
+      border: 1px solid #ffeaa7;
+      color: #856404;
+      padding: 15px;
+      border-radius: 4px;
+      margin: 15px 0;
+    }
+    .success {
+      background: #d1e7dd;
+      border: 1px solid #a3cfbb;
+      color: #0f5132;
+      padding: 15px;
+      border-radius: 4px;
+      margin: 15px 0;
+    }
+    .race-codes {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 15px;
+      margin: 20px 0;
+    }
+    .race-code {
+      background: white;
+      border: 1px solid #dee2e6;
+      padding: 15px;
+      border-radius: 6px;
+    }
+    .race-code h4 {
+      margin: 0 0 10px 0;
+      color: #495057;
+    }
+    .race-code code {
+      background: #f8f9fa;
+      padding: 2px 6px;
+      border-radius: 3px;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>🏁 FinnTrack Setup</h1>
+    <p>Use your phone to track your boat during races</p>
+  </div>
+
+  <div class="step">
+    <h3>📱 Step 1: Install Traccar Client</h3>
+    <p>Download and install the <strong>Traccar Client</strong> app on your smartphone:</p>
+    <ul>
+      <li><strong>iPhone:</strong> <a href="https://apps.apple.com/app/traccar-client/id843156974" target="_blank">Download from App Store</a></li>
+      <li><strong>Android:</strong> <a href="https://play.google.com/store/apps/details?id=org.traccar.client" target="_blank">Download from Google Play</a></li>
+    </ul>
+  </div>
+
+  <div class="step">
+    <h3>⚙️ Step 2: Configure Traccar Settings</h3>
+    <p>Open the Traccar Client app and configure these settings:</p>
+
+    <h4>Server Settings:</h4>
+    <div class="config-box">
+      Server URL: <strong>https://api.finntracker.org/traccar</strong><br>
+      Device Identifier: <strong>[YOUR-BOAT-ID]</strong> (see Step 3)<br>
+      Frequency: <strong>10 seconds</strong><br>
+      Distance: <strong>10 meters</strong>
+    </div>
+
+    <div class="warning">
+      <strong>Important:</strong> Make sure "Location access" is set to "Allow all the time" in your phone settings for the Traccar app.
+    </div>
+  </div>
+
+  <div class="step">
+    <h3>🚤 Step 3: Choose Your Boat ID</h3>
+    <p>Your Device Identifier should be your <strong>sail number</strong> or boat name. Examples:</p>
+    <ul>
+      <li><strong>AUS123</strong> (for sail number AUS 123)</li>
+      <li><strong>NZL456</strong> (for sail number NZL 456)</li>
+      <li><strong>GBR789</strong> (for sail number GBR 789)</li>
+      <li><strong>MyBoatName</strong> (if no sail number)</li>
+    </ul>
+
+    <div class="warning">
+      <strong>Note:</strong> Use your actual sail number or boat name. This will be displayed on the live tracking map.
+    </div>
+  </div>
+
+  <div class="step">
+    <h3>🏆 Step 4: Race Codes (Optional)</h3>
+    <p>By default, your tracking will go to the training race. To join a specific race, add the race code to your server URL:</p>
+
+    <div class="race-codes">
+      <div class="race-code">
+        <h4>Australian Nationals 2026</h4>
+        <code>?race=AUSNATS-2026-R01</code><br>
+        <small>Race 1 through R06</small>
+      </div>
+      <div class="race-code">
+        <h4>Gold Cup 2026</h4>
+        <code>?race=GOLDCUP-2026-R01</code><br>
+        <small>Race 1 through R10</small>
+      </div>
+      <div class="race-code">
+        <h4>World Masters 2026</h4>
+        <code>?race=MASTERS-2026-R01</code><br>
+        <small>Race 1 through R08</small>
+      </div>
+      <div class="race-code">
+        <h4>Training/Practice</h4>
+        <code>?race=TRAINING-2026-R01</code><br>
+        <small>Default if no race specified</small>
+      </div>
+    </div>
+
+    <h4>Example with race code:</h4>
+    <div class="config-box">
+      Server URL: <strong>https://api.finntracker.org/traccar?race=AUSNATS-2026-R01&key=finntrack_local_dev_9f3a8c2e4d7b1a0c6e5f</strong>
+    </div>
+
+    <div class="warning">
+      <strong>API Key Required:</strong> Add <code>&key=finntrack_local_dev_9f3a8c2e4d7b1a0c6e5f</code> to your server URL for authentication.
+    </div>
+  </div>
+
+  <div class="step">
+    <h3>🟢 Step 5: Start Tracking</h3>
+    <p>Once configured:</p>
+    <ol>
+      <li>Tap the <strong>"Status: Stopped"</strong> button to start tracking</li>
+      <li>Status should change to <strong>"Status: Online"</strong></li>
+      <li>Your location will be sent every 10 seconds while sailing</li>
+      <li>Check <a href="https://finntracker.org" target="_blank">finntracker.org</a> to see your boat on the live map</li>
+    </ol>
+
+    <div class="success">
+      <strong>Success!</strong> Your boat should now appear on the live tracking website with a green indicator showing you're active.
+    </div>
+  </div>
+
+  <div class="step">
+    <h3>🔧 Troubleshooting</h3>
+    <ul>
+      <li><strong>Not appearing on map?</strong> Check your internet connection and GPS signal</li>
+      <li><strong>Red/offline status?</strong> Make sure tracking is started and location permissions are enabled</li>
+      <li><strong>Wrong race?</strong> Double-check your server URL includes the correct race code</li>
+      <li><strong>Battery drain?</strong> Use a portable charger - GPS tracking uses battery power</li>
+    </ul>
+  </div>
+
+  <div class="step">
+    <h3>📞 Support</h3>
+    <p>Need help? Contact the race organizers or technical support team.</p>
+    <p><strong>Live tracking:</strong> <a href="https://finntracker.org" target="_blank">https://finntracker.org</a></p>
+  </div>
+
+  <script>
+    // Copy text to clipboard functionality
+    document.addEventListener('click', function(e) {
+      if (e.target.matches('.config-box')) {
+        const text = e.target.textContent;
+        navigator.clipboard.writeText(text).then(function() {
+          e.target.style.background = '#d1e7dd';
+          setTimeout(() => {
+            e.target.style.background = '#e9ecef';
+          }, 1000);
+        });
+      }
+    });
+  </script>
+</body>
+</html>

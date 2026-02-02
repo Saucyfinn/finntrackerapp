@@ -1,77 +1,76 @@
 <!doctype html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>FinnTrack – Live</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>FinnTrack – Live</title>
 
-    <!-- Leaflet CSS -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <link rel="stylesheet" href="/css/style.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="/css/style.css" />
+
+  <style>
+    body { margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
+    header { display:flex; justify-content:space-between; align-items:center; padding:12px 16px; border-bottom:1px solid #eee; }
+    .brand { font-size: 22px; font-weight: 800; }
+    nav a { margin-left: 12px; text-decoration:none; color:#06c; }
+    #app { display:flex; height: calc(100vh - 58px); }
+    #sidebar { width: 320px; padding: 12px; border-right:1px solid #eee; overflow:auto; }
+    #map { flex:1; }
+    .section-title { font-weight:700; margin-bottom: 6px; }
+    select, button { width:100%; padding: 8px; margin: 6px 0; }
+    #boatsList { margin: 8px 0 0 18px; font-family: monospace; font-size: 12px; white-space: pre-line; }
+    .row { display:flex; gap:8px; }
+    .row button { width: 50%; }
+  </style>
 </head>
 
 <body>
-
 <header>
-    <div class="brand">FinnTrack</div>
-    <nav>
-        <a href="/">Home</a>
-        <a class="active" href="/live">Live</a>
-        <a href="/replay">Replay</a>
-        <a href="/analytics">Analytics</a>
-    </nav>
+  <div class="brand">FinnTrack</div>
+  <nav>
+    <a href="/">Home</a>
+    <a href="/live">Live</a>
+    <a href="/replay">Replay</a>
+    <a href="/analytics">Analytics</a>
+  </nav>
 </header>
 
 <div id="app">
+  <div id="sidebar">
+    <div class="section-title">Live Tracking</div>
+    <div id="connectionStatus">🟡 Connecting…</div>
 
-    <div id="sidebar">
+    <hr />
 
-        <div class="section-title">Live Tracking</div>
-        <div id="wsStatus">🟢 Connected...</div>
+    <div>Race:</div>
+    <select id="raceSelect"></select>
+    <button id="loadRaceBtn">Load Race</button>
 
-        <hr />
+    <hr />
 
-        <div>Race:</div>
-        <select id="raceSelect" class="w100"></select>
-        <button id="loadRaceBtn" class="w100">Load Race</button>
+    <div>Follow Boat:</div>
+    <select id="followSelect">
+      <option value="">-- All boats --</option>
+    </select>
 
-        <hr />
-
-        <div>Follow Boat:</div>
-        <select id="followSelect" class="w100">
-            <option value="">-- All boats --</option>
-        </select>
-
-        <div class="row">
-            <button id="followBtn" class="w50">Follow</button>
-            <button id="resetViewBtn" class="w50">Reset View</button>
-        </div>
-
-        <hr />
-
-        <div class="section-title">Boats</div>
-        <div id="boatList">(no boats connected yet)</div>
-
-    </div> <!-- /sidebar -->
-
-    <div id="mapWrap">
-        <div id="map"></div>
+    <div class="row">
+      <button id="followBtn">Follow</button>
+      <button id="resetViewBtn">Reset View</button>
     </div>
 
-</div> <!-- /app -->
+    <hr />
 
-<!-- Leaflet JS must load before map.js -->
+    <div class="section-title">Boats</div>
+    <div id="boatsList">(loading…)</div>
+  </div>
+
+  <div id="map"></div>
+</div>
+
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-
-<!-- Inject API base BEFORE api.js -->
-<script>
-    window.FINNTRACK_API_BASE = "https://api.finntracker.org";
-</script>
-
-<!-- Your app scripts -->
+<script src="/js/config.js"></script>
 <script src="/js/map.js"></script>
 <script src="/js/api.js"></script>
 <script src="/js/live.js"></script>
-
 </body>
 </html>

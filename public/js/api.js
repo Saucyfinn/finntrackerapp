@@ -1,80 +1,140 @@
-/* public/js/api.js - FinnTrack API helper (v3 compatible) */
+/* public/js/api.js - FinnTrack API (matches current simple backend) */
 (function () {
-  const API_BASE = window.FINNTRACK_API_BASE || "";
+  window.FINNTRACK_API_BASE = window.FINNTRACK_API_BASE || "https://api.finntracker.org";
+  const API_BASE = String(window.FINNTRACK_API_BASE).replace(/\/$/, "");
 
   async function jget(path) {
     const url = API_BASE + path;
-    const r = await fetch(url, {
-      headers: { "Accept": "application/json" },
-      credentials: API_BASE ? "omit" : "same-origin",
+    const res = await fetch(url, {
+      headers: { Accept: "application/json" },
+      credentials: "omit"
     });
-    if (!r.ok) {
-      const t = await r.text().catch(() => "");
-      throw new Error(`GET ${url} -> ${r.status} ${t}`);
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      throw new Error(`GET ${url} -> ${res.status} ${text}`);
     }
-    const ct = r.headers.get("content-type") || "";
-    if (!ct.includes("application/json")) {
-      const txt = await r.text();
-      try { return JSON.parse(txt); } catch { return txt; }
-    }
-    return r.json();
+    return res.json();
   }
 
-  function normalizeRaces(payload) {
-    // Accept: array of strings, array of objects, {races:[...]}
-    const races = Array.isArray(payload) ? payload : (payload?.races || []);
-    return races
-      .map(r => {
-        if (typeof r === "string") return { id: r, name: r };
-        const id = r.id || r.raceId || r.slug || r.name || r.title;
-        const name = r.name || r.title || id;
-        return id ? { id, name } : null;
-      })
-      .filter(Boolean);
+  async function jpost(path, data) {
+    const url = API_BASE + path;
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      credentials: "omit",
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      throw new Error(`POST ${url} -> ${res.status} ${text}`);
+    }
+    return res.json();
   }
 
-  function normalizeBoats(payload) {
-    // Accept: array, {boats:[...]}, {ok:true,boats:[...]}
-    if (Array.isArray(payload)) return payload;
-    if (payload && typeof payload === "object") {
-      if (Array.isArray(payload.boats)) return payload.boats;
-      // Sometimes older backends return { boatId: {...}, ... }
-      return Object.values(payload);
-    }
-    return [];
+  function normalizeRacesPayload(data) {
+    // Backend returns: { races: [ { id, label, series, raceNo } ] }
+    const races = (data && data.races) ? data.races : [];
+    return races.map(r => ({
+      raceId: r.id || "",
+      title: r.label || r.id || "",
+      id: r.id || "",
+      label: r.label || r.id || "",
+      series: r.series || "",
+      raceNo: r.raceNo || 1
+    })).filter(r => r.raceId);
   }
 
   window.FinnAPI = {
-    async listRaces() {
-      const raw = await jget("/races");
-      return normalizeRaces(raw);
+    apiBase: API_BASE,
+
+    // GET /races - The only endpoint that actually exists
+    async getRaces() {
+      const data = await jget("/races");
+      return normalizeRacesPayload(data);
     },
 
-    async listBoats(raceId, activeSeconds = 300) {
-      // activeSeconds is optional (API may ignore). Keep for compatibility.
-      const u = `/boats?raceId=${encodeURIComponent(raceId)}&activeSeconds=${encodeURIComponent(activeSeconds)}`;
-      const raw = await jget(u);
-      return normalizeBoats(raw);
+    // Mock implementation - backend doesn't have this yet
+    async getFleet(raceId) {
+      console.warn("getFleet: Backend doesn't implement /fleet endpoint yet");
+      // Return mock fleet data for testing
+      return [
+        { boatId: "TEST01", boatName: "Test Boat 1", sailNumber: "01" },
+        { boatId: "TEST02", boatName: "Test Boat 2", sailNumber: "02" },
+        { boatId: "TEST03", boatName: "Test Boat 3", sailNumber: "03" }
+      ];
     },
 
-    getLiveWsUrl(raceId) {
-      // WebSocket is optional; live page uses polling.
-      const base = API_BASE || window.location.origin;
-      const protocol = base.startsWith("https") ? "wss" : "ws";
-      const host = base.replace(/^https?:\/\//, "");
-      return `${protocol}://${host}/live?raceId=${encodeURIComponent(raceId)}`;
+    // Mock implementation - backend doesn't have this yet
+    async getLiveBoats(raceId, withinSeconds = 86400) {
+      console.warn("getLiveBoats: Backend doesn't implement /boats endpoint yet");
+      // Return mock boat positions for testing
+      return [
+        {
+          boatId: "TEST01",
+          boatName: "Test Boat 1",
+          lat: -43.530,
+          lng: 172.620,
+          lon: 172.620,
+          heading: 45,
+          speed: 5.2,
+          timestamp: Date.now() - 30000,
+          lastSeen: Date.now() - 30000,
+          active: true,
+          live: true
+        },
+        {
+          boatId: "TEST02",
+          boatName: "Test Boat 2",
+          lat: -43.535,
+          lng: 172.625,
+          lon: 172.625,
+          heading: 120,
+          speed: 6.1,
+          timestamp: Date.now() - 60000,
+          lastSeen: Date.now() - 60000,
+          active: true,
+          live: false
+        }
+      ];
     },
 
-    // Replay helpers for replay.html
-    async replayList(prefix) {
-      const raw = await jget(`/replay/list?prefix=${encodeURIComponent(prefix)}`);
-      // raw.keys can be [{key,...}] or ["key",...]
-      const keys = raw?.keys || [];
-      return keys.map(k => (typeof k === "string" ? k : k.key)).filter(Boolean);
+    // Mock implementation - backend doesn't have WebSocket yet
+    openLiveWebSocket(raceId) {
+      console.warn("openLiveWebSocket: Backend doesn't implement WebSocket yet");
+      // Return a mock WebSocket that doesn't connect
+      const mockWS = {
+        readyState: WebSocket.CONNECTING,
+        addEventListener: () => {},
+        removeEventListener: () => {},
+        send: () => console.warn("Mock WebSocket: send() called"),
+        close: () => console.warn("Mock WebSocket: close() called"),
+        onopen: null,
+        onmessage: null,
+        onclose: null,
+        onerror: null
+      };
+
+      // Simulate immediate error since we can't connect
+      setTimeout(() => {
+        if (mockWS.onerror) mockWS.onerror(new Event('error'));
+      }, 100);
+
+      return mockWS;
     },
 
-    async replayGet(key) {
-      return jget(`/replay/get?key=${encodeURIComponent(key)}`);
-    }
+    // POST /update - This actually exists
+    async sendUpdate(updateData, key) {
+      const qs = key ? `?key=${encodeURIComponent(key)}` : "";
+      return jpost(`/update${qs}`, updateData);
+    },
+
+    // Test the health endpoint
+    async getHealth() {
+      return jget("/health");
+    },
+
+    // Legacy aliases
+    async listRaces() { return this.getRaces(); },
+    async listBoats(raceId, withinSeconds) { return this.getLiveBoats(raceId, withinSeconds); }
   };
 })();

@@ -1,0 +1,411 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>FinnTrack - Race Replay</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      margin: 0;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    .header {
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .controls {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      margin-top: 15px;
+      flex-wrap: wrap;
+    }
+    select, button, input {
+      padding: 8px 12px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+    button {
+      background: #007bff;
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
+    button:hover { background: #0056b3; }
+    button:disabled {
+      background: #6c757d;
+      cursor: not-allowed;
+    }
+    .play-button {
+      background: #28a745;
+      font-size: 16px;
+      padding: 10px 20px;
+    }
+    .pause-button {
+      background: #dc3545;
+    }
+    .replay-controls {
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .time-slider {
+      width: 100%;
+      margin: 15px 0;
+    }
+    .time-display {
+      text-align: center;
+      font-weight: bold;
+      font-size: 18px;
+      margin: 10px 0;
+    }
+    .speed-controls {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-top: 15px;
+    }
+    .map-container {
+      background: white;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      height: 500px;
+      overflow: hidden;
+      position: relative;
+    }
+    #map {
+      width: 100%;
+      height: 100%;
+      border-radius: 8px;
+    }
+    .boat-info {
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      overflow: hidden;
+    }
+    .boat-info-header {
+      background: #f8f9fa;
+      padding: 15px 20px;
+      border-bottom: 1px solid #dee2e6;
+      font-weight: 600;
+    }
+    .boat-list {
+      max-height: 300px;
+      overflow-y: auto;
+      padding: 10px;
+    }
+    .boat-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px;
+      margin: 5px 0;
+      background: #f8f9fa;
+      border-radius: 4px;
+      border: 2px solid transparent;
+    }
+    .boat-item.selected {
+      border-color: #007bff;
+      background: #e7f3ff;
+    }
+    .loading {
+      text-align: center;
+      padding: 40px;
+      color: #6c757d;
+    }
+    .error {
+      background: #f8d7da;
+      color: #721c24;
+      padding: 15px;
+      border-radius: 4px;
+      margin: 20px 0;
+    }
+    .navigation {
+      margin-bottom: 20px;
+    }
+    .navigation a {
+      color: #007bff;
+      text-decoration: none;
+      margin-right: 15px;
+    }
+    .navigation a:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+  <div class="navigation">
+    <a href="/">← Live Tracking</a>
+    <a href="/traccar-setup">📱 Setup Guide</a>
+  </div>
+
+  <div class="header">
+    <h1>🎬 FinnTrack Race Replay</h1>
+    <p>Replay and analyze completed races</p>
+    <div class="controls">
+      <label>Race:</label>
+      <select id="race"></select>
+      <button id="load">📥 Load Race</button>
+      <label>Date Range:</label>
+      <input type="date" id="start-date" />
+      <input type="date" id="end-date" />
+    </div>
+  </div>
+
+  <div class="replay-controls" id="replay-controls" style="display:none;">
+    <div class="controls">
+      <button id="play-pause" class="play-button">▶️ Play</button>
+      <button id="reset">⏪ Reset</button>
+      <button id="step-back">⏮️ -10s</button>
+      <button id="step-forward">⏭️ +10s</button>
+    </div>
+
+    <div class="time-display" id="time-display">00:00:00</div>
+    <input type="range" class="time-slider" id="time-slider" min="0" max="100" value="0" />
+
+    <div class="speed-controls">
+      <label>Speed:</label>
+      <button id="speed-1">1x</button>
+      <button id="speed-2">2x</button>
+      <button id="speed-5">5x</button>
+      <button id="speed-10">10x</button>
+      <span id="current-speed">1x</span>
+    </div>
+  </div>
+
+  <div class="map-container">
+    <div id="map"></div>
+  </div>
+
+  <div class="boat-info">
+    <div class="boat-info-header">
+      <span id="boat-count">Race History</span>
+    </div>
+    <div id="boat-list" class="loading">Select a race to view replay...</div>
+  </div>
+
+  <script>
+    const API = "https://api.finntracker.org";
+    const raceSel = document.getElementById("race");
+    const boatList = document.getElementById("boat-list");
+    const boatCount = document.getElementById("boat-count");
+    const replayControls = document.getElementById("replay-controls");
+    const playPauseBtn = document.getElementById("play-pause");
+    const timeSlider = document.getElementById("time-slider");
+    const timeDisplay = document.getElementById("time-display");
+    const currentSpeedDisplay = document.getElementById("current-speed");
+
+    let map = null;
+    let boatMarkers = new Map();
+    let boatTrails = new Map();
+    let replayData = null;
+    let isPlaying = false;
+    let currentTime = 0;
+    let playbackSpeed = 1;
+    let animationId = null;
+
+    function initMap() {
+      if (map) return;
+
+      map = L.map('map').setView([-43.5, 172.6], 10);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors'
+      }).addTo(map);
+    }
+
+    async function loadRaces() {
+      try {
+        const r = await fetch(`${API}/races`);
+        if (!r.ok) throw new Error(`HTTP ${r.status}: ${r.statusText}`);
+
+        const data = await r.json();
+        let races = Array.isArray(data) ? data : (data?.races || []);
+        races = races.map(r => {
+          if (typeof r === "string") return { id: r, name: r };
+          const id = r.id || r.raceId || r.slug || r.name || r.title;
+          const name = r.label || r.name || r.title || id;
+          return id ? { id, name } : null;
+        }).filter(Boolean);
+
+        raceSel.innerHTML = "";
+        const defaultOption = document.createElement("option");
+        defaultOption.value = "";
+        defaultOption.textContent = "Select a race...";
+        raceSel.appendChild(defaultOption);
+
+        races.forEach(race => {
+          const opt = document.createElement("option");
+          opt.value = race.id;
+          opt.textContent = race.name;
+          raceSel.appendChild(opt);
+        });
+      } catch (error) {
+        console.error('Error loading races:', error);
+        showError(`Error loading races: ${error.message}`);
+      }
+    }
+
+    function showError(message) {
+      boatList.innerHTML = `<div class="error">${message}</div>`;
+    }
+
+    function showLoading(message = "Loading race data...") {
+      boatList.innerHTML = `<div class="loading">${message}</div>`;
+    }
+
+    async function loadRaceHistory() {
+      const raceId = raceSel.value;
+      if (!raceId) return;
+
+      showLoading();
+      replayControls.style.display = "none";
+
+      try {
+        // For now, we'll simulate historical data
+        // In a real implementation, this would fetch historical tracking data
+        showError("Race replay feature coming soon! Historical data collection is being implemented.");
+
+        // TODO: Implement historical data endpoint
+        // const response = await fetch(`${API}/races/${raceId}/history`);
+        // const historyData = await response.json();
+
+      } catch (error) {
+        showError(`Error loading race history: ${error.message}`);
+      }
+    }
+
+    function formatTime(seconds) {
+      const hours = Math.floor(seconds / 3600);
+      const minutes = Math.floor((seconds % 3600) / 60);
+      const secs = Math.floor(seconds % 60);
+      return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    }
+
+    function togglePlayPause() {
+      if (isPlaying) {
+        pauseReplay();
+      } else {
+        playReplay();
+      }
+    }
+
+    function playReplay() {
+      isPlaying = true;
+      playPauseBtn.textContent = "⏸️ Pause";
+      playPauseBtn.classList.remove("play-button");
+      playPauseBtn.classList.add("pause-button");
+
+      // Animation loop would go here
+      animate();
+    }
+
+    function pauseReplay() {
+      isPlaying = false;
+      playPauseBtn.textContent = "▶️ Play";
+      playPauseBtn.classList.remove("pause-button");
+      playPauseBtn.classList.add("play-button");
+
+      if (animationId) {
+        cancelAnimationFrame(animationId);
+      }
+    }
+
+    function animate() {
+      if (!isPlaying) return;
+
+      // Update replay time and boat positions
+      currentTime += playbackSpeed * 0.1; // Adjust for smooth animation
+
+      if (replayData && currentTime >= replayData.duration) {
+        pauseReplay();
+        return;
+      }
+
+      updateReplayFrame();
+      animationId = requestAnimationFrame(animate);
+    }
+
+    function updateReplayFrame() {
+      timeDisplay.textContent = formatTime(currentTime);
+      timeSlider.value = replayData ? (currentTime / replayData.duration) * 100 : 0;
+
+      // Update boat positions based on currentTime
+      // This would interpolate between data points
+    }
+
+    function setPlaybackSpeed(speed) {
+      playbackSpeed = speed;
+      currentSpeedDisplay.textContent = `${speed}x`;
+
+      // Update button styles
+      document.querySelectorAll('.speed-controls button').forEach(btn => {
+        btn.style.background = '#f8f9fa';
+        btn.style.color = '#495057';
+      });
+      document.getElementById(`speed-${speed}`).style.background = '#007bff';
+      document.getElementById(`speed-${speed}`).style.color = 'white';
+    }
+
+    function resetReplay() {
+      pauseReplay();
+      currentTime = 0;
+      updateReplayFrame();
+    }
+
+    function stepBackward() {
+      currentTime = Math.max(0, currentTime - 10);
+      updateReplayFrame();
+    }
+
+    function stepForward() {
+      if (replayData) {
+        currentTime = Math.min(replayData.duration, currentTime + 10);
+        updateReplayFrame();
+      }
+    }
+
+    // Event listeners
+    document.getElementById("load").onclick = loadRaceHistory;
+    document.getElementById("play-pause").onclick = togglePlayPause;
+    document.getElementById("reset").onclick = resetReplay;
+    document.getElementById("step-back").onclick = stepBackward;
+    document.getElementById("step-forward").onclick = stepForward;
+
+    document.getElementById("speed-1").onclick = () => setPlaybackSpeed(1);
+    document.getElementById("speed-2").onclick = () => setPlaybackSpeed(2);
+    document.getElementById("speed-5").onclick = () => setPlaybackSpeed(5);
+    document.getElementById("speed-10").onclick = () => setPlaybackSpeed(10);
+
+    timeSlider.oninput = function() {
+      if (replayData) {
+        currentTime = (this.value / 100) * replayData.duration;
+        updateReplayFrame();
+      }
+    };
+
+    // Set default dates
+    const today = new Date();
+    const lastWeek = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+    document.getElementById("end-date").value = today.toISOString().split('T')[0];
+    document.getElementById("start-date").value = lastWeek.toISOString().split('T')[0];
+
+    // Initialize
+    initMap();
+    loadRaces();
+    setPlaybackSpeed(1);
+  </script>
+</body>
+</html>

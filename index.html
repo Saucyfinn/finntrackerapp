@@ -1,0 +1,587 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>FinnTrack</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <style>
+      body {
+        font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+        margin: 0;
+        padding: 20px;
+        background: #f5f5f5;
+      }
+      .header {
+        background: white;
+        padding: 20px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      }
+      .controls {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        margin-top: 15px;
+      }
+      select, button {
+        padding: 8px 12px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 14px;
+      }
+      button {
+        background: #007bff;
+        color: white;
+        border: none;
+        cursor: pointer;
+      }
+      button:hover { background: #0056b3; }
+      .race-info {
+        background: white;
+        padding: 20px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      }
+      .boats-container {
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        overflow: hidden;
+      }
+      .boats-header {
+        background: #f8f9fa;
+        padding: 15px 20px;
+        border-bottom: 1px solid #dee2e6;
+        font-weight: 600;
+      }
+      .boat-list {
+        max-height: 600px;
+        overflow-y: auto;
+      }
+      .boat-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 15px 20px;
+        border-bottom: 1px solid #f1f3f4;
+        transition: background-color 0.2s;
+      }
+      .boat-item:hover {
+        background-color: #f8f9fa;
+      }
+      .boat-info {
+        flex-grow: 1;
+      }
+      .boat-name {
+        font-weight: 600;
+        font-size: 16px;
+        margin-bottom: 4px;
+      }
+      .boat-details {
+        font-size: 14px;
+        color: #6c757d;
+      }
+      .boat-status {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .status-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: #dc3545;
+      }
+      .status-dot.active {
+        background: #28a745;
+      }
+      .status-text {
+        font-size: 14px;
+        font-weight: 500;
+      }
+      .status-text.active { color: #28a745; }
+      .status-text.inactive { color: #dc3545; }
+      .boat-telemetry {
+        font-size: 12px;
+        color: #6c757d;
+        margin-top: 4px;
+      }
+      .loading {
+        text-align: center;
+        padding: 40px;
+        color: #6c757d;
+      }
+      .error {
+        background: #f8d7da;
+        color: #721c24;
+        padding: 15px;
+        border-radius: 4px;
+        margin: 20px;
+      }
+      .no-boats {
+        text-align: center;
+        padding: 40px;
+        color: #6c757d;
+      }
+      .map-container {
+        background: white;
+        border-radius: 8px;
+        margin-bottom: 20px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        height: 400px;
+        overflow: hidden;
+      }
+      #map {
+        width: 100%;
+        height: 100%;
+        border-radius: 8px;
+      }
+      .map-controls {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        z-index: 1000;
+        background: white;
+        padding: 5px;
+        border-radius: 4px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+      }
+      .map-controls button {
+        background: #f8f9fa;
+        border: 1px solid #dee2e6;
+        padding: 4px 8px;
+        font-size: 12px;
+        margin: 2px;
+        cursor: pointer;
+      }
+      .map-controls button:hover {
+        background: #e9ecef;
+      }
+      .map-container.fullscreen {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        z-index: 10000;
+        margin: 0;
+        border-radius: 0;
+      }
+      .map-container.fullscreen #map {
+        border-radius: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="header">
+      <h1>🏁 FinnTrack</h1>
+      <p>Real-time Finn Dinghy Race Tracking</p>
+      <div class="controls">
+        <label>Race:</label>
+        <select id="race"></select>
+        <button id="load">🔄 Refresh</button>
+        <button id="auto-refresh">⏱️ Auto Refresh</button>
+        <a href="/traccar-setup.html" target="_blank" style="
+          background: #28a745;
+          color: white;
+          text-decoration: none;
+          padding: 8px 12px;
+          border-radius: 4px;
+          font-size: 14px;
+          margin-left: 10px;
+        ">📱 Join Race</a>
+        <a href="/replay.html" target="_blank" style="
+          background: #6f42c1;
+          color: white;
+          text-decoration: none;
+          padding: 8px 12px;
+          border-radius: 4px;
+          font-size: 14px;
+          margin-left: 10px;
+        ">🎬 Replay</a>
+      </div>
+    </div>
+
+    <div class="race-info" id="race-info" style="display:none;">
+      <h3 id="race-title">Race Information</h3>
+      <p id="race-details"></p>
+    </div>
+
+    <div class="map-container" id="map-container">
+      <div id="map"></div>
+      <div class="map-controls">
+        <button id="fit-boats">🎯 Fit All</button>
+        <button id="toggle-trails">🛤️ Trails</button>
+        <button id="fullscreen-toggle">🔍 Fullscreen</button>
+      </div>
+    </div>
+
+    <div class="boats-container">
+      <div class="boats-header">
+        <span id="boats-count">Boats</span>
+      </div>
+      <div id="boats-list" class="loading">Loading boats...</div>
+    </div>
+
+    <script>
+      const API = "https://api.finntracker.org";
+      const raceSel = document.getElementById("race");
+      const boatsList = document.getElementById("boats-list");
+      const boatsCount = document.getElementById("boats-count");
+      const raceInfo = document.getElementById("race-info");
+      const raceTitle = document.getElementById("race-title");
+      const raceDetails = document.getElementById("race-details");
+
+      let autoRefreshInterval = null;
+      let map = null;
+      let boatMarkers = new Map();
+      let boatTrails = new Map();
+      let showTrails = false;
+
+      function initMap() {
+        if (map) return;
+
+        // Initialize map centered on a default location
+        map = L.map('map').setView([-43.5, 172.6], 10);
+
+        // Add OpenStreetMap tiles
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+
+        // Add map controls
+        document.getElementById('fit-boats').onclick = fitMapToBoats;
+        document.getElementById('toggle-trails').onclick = toggleTrails;
+        document.getElementById('fullscreen-toggle').onclick = toggleFullscreen;
+      }
+
+      function createBoatIcon(isActive, boatId) {
+        const color = isActive ? '#28a745' : '#dc3545';
+        const html = `
+          <div style="
+            background: ${color};
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            border: 2px solid white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+            position: relative;
+          ">
+            <div style="
+              position: absolute;
+              top: 15px;
+              left: 50%;
+              transform: translateX(-50%);
+              background: white;
+              padding: 2px 4px;
+              border-radius: 2px;
+              font-size: 10px;
+              font-weight: bold;
+              white-space: nowrap;
+              box-shadow: 0 1px 2px rgba(0,0,0,0.2);
+            ">${boatId}</div>
+          </div>
+        `;
+
+        return L.divIcon({
+          html: html,
+          iconSize: [16, 16],
+          iconAnchor: [8, 8],
+          className: 'boat-marker'
+        });
+      }
+
+      function updateMap(boats) {
+        if (!map) initMap();
+
+        // Clear existing markers
+        boatMarkers.forEach(marker => map.removeLayer(marker));
+        boatMarkers.clear();
+
+        const validBoats = boats.filter(boat => {
+          const lat = boat.telemetry?.lat || boat.lat;
+          const lon = boat.telemetry?.lon || boat.lon;
+          return lat != null && lon != null;
+        });
+
+        validBoats.forEach(boat => {
+          const lat = boat.telemetry?.lat || boat.lat;
+          const lon = boat.telemetry?.lon || boat.lon;
+          const isActive = boat.active || boat.live;
+          const lastSeen = boat.lastSeen || boat.telemetry?.t || boat.timestamp;
+          const speed = boat.telemetry?.sog || boat.telemetry?.speed || boat.speed;
+          const heading = boat.telemetry?.cog || boat.telemetry?.heading || boat.heading;
+
+          const marker = L.marker([lat, lon], {
+            icon: createBoatIcon(isActive, boat.boatId)
+          }).addTo(map);
+
+          // Add popup with boat information
+          const popupContent = `
+            <div style="min-width: 200px;">
+              <h4 style="margin: 0 0 8px 0;">${boat.boatName || boat.boatId}</h4>
+              <p style="margin: 0; font-size: 12px; color: #666;">
+                <strong>Status:</strong> ${isActive ? '🟢 Live' : '🔴 Offline'}<br>
+                <strong>Position:</strong> ${lat.toFixed(4)}°, ${lon.toFixed(4)}°<br>
+                ${speed ? `<strong>Speed:</strong> ${speed.toFixed(1)} kts<br>` : ''}
+                ${heading ? `<strong>Heading:</strong> ${heading}°<br>` : ''}
+                <strong>Last seen:</strong> ${formatTime(lastSeen)}
+              </p>
+            </div>
+          `;
+
+          marker.bindPopup(popupContent);
+          boatMarkers.set(boat.boatId, marker);
+
+          // Update trails if enabled
+          if (showTrails) {
+            updateBoatTrail(boat.boatId, lat, lon);
+          }
+        });
+
+        // Auto-fit map to show all boats on first load
+        if (validBoats.length > 0 && !map._fitBoundsExecuted) {
+          fitMapToBoats();
+          map._fitBoundsExecuted = true;
+        }
+      }
+
+      function updateBoatTrail(boatId, lat, lon) {
+        if (!boatTrails.has(boatId)) {
+          const trail = L.polyline([], {
+            color: '#007bff',
+            weight: 2,
+            opacity: 0.6
+          }).addTo(map);
+          boatTrails.set(boatId, trail);
+        }
+
+        const trail = boatTrails.get(boatId);
+        const latlngs = trail.getLatLngs();
+        latlngs.push([lat, lon]);
+
+        // Keep only last 50 points to avoid performance issues
+        if (latlngs.length > 50) {
+          latlngs.shift();
+        }
+
+        trail.setLatLngs(latlngs);
+      }
+
+      function fitMapToBoats() {
+        if (!map || boatMarkers.size === 0) return;
+
+        const group = new L.featureGroup(Array.from(boatMarkers.values()));
+        map.fitBounds(group.getBounds().pad(0.1));
+      }
+
+      function toggleTrails() {
+        const button = document.getElementById('toggle-trails');
+        showTrails = !showTrails;
+
+        if (showTrails) {
+          button.textContent = '🛤️ Hide Trails';
+          button.style.background = '#28a745';
+        } else {
+          button.textContent = '🛤️ Trails';
+          button.style.background = '#f8f9fa';
+          // Clear all trails
+          boatTrails.forEach(trail => map.removeLayer(trail));
+          boatTrails.clear();
+        }
+      }
+
+      function toggleFullscreen() {
+        const mapContainer = document.getElementById('map-container');
+        const button = document.getElementById('fullscreen-toggle');
+
+        if (mapContainer.classList.contains('fullscreen')) {
+          // Exit fullscreen
+          mapContainer.classList.remove('fullscreen');
+          button.textContent = '🔍 Fullscreen';
+          button.style.background = '#f8f9fa';
+        } else {
+          // Enter fullscreen
+          mapContainer.classList.add('fullscreen');
+          button.textContent = '🔍 Exit Full';
+          button.style.background = '#007bff';
+        }
+
+        // Force map to resize to new container dimensions
+        setTimeout(() => {
+          if (map) {
+            map.invalidateSize();
+          }
+        }, 100);
+      }
+
+      async function loadRaces() {
+        try {
+          const r = await fetch(`${API}/races`);
+          if (!r.ok) {
+            throw new Error(`HTTP ${r.status}: ${r.statusText}`);
+          }
+          const data = await r.json();
+
+          let races = Array.isArray(data) ? data : (data?.races || []);
+          races = races.map(r => {
+            if (typeof r === "string") return { id: r, name: r };
+            const id = r.id || r.raceId || r.slug || r.name || r.title;
+            const name = r.label || r.name || r.title || id;
+            return id ? { id, name } : null;
+          }).filter(Boolean);
+
+          raceSel.innerHTML = "";
+          (races.length ? races : [{id: "TEST-RACE", name: "TEST-RACE"}]).forEach(race => {
+            const opt = document.createElement("option");
+            opt.value = race.id;
+            opt.textContent = race.name;
+            raceSel.appendChild(opt);
+          });
+        } catch (error) {
+          console.error('Error in loadRaces:', error);
+          showError(`Error loading races: ${error.message}`);
+        }
+      }
+
+      function showError(message) {
+        boatsList.innerHTML = `<div class="error">${message}</div>`;
+      }
+
+      function showLoading(message = "Loading boats...") {
+        boatsList.innerHTML = `<div class="loading">${message}</div>`;
+      }
+
+      function formatTime(timestamp) {
+        if (!timestamp) return "Never";
+        const date = new Date(timestamp);
+        const now = new Date();
+        const diffMs = now - date;
+        const diffMin = Math.floor(diffMs / 60000);
+
+        if (diffMin < 1) return "Just now";
+        if (diffMin < 60) return `${diffMin}m ago`;
+        if (diffMin < 1440) return `${Math.floor(diffMin / 60)}h ago`;
+        return date.toLocaleDateString();
+      }
+
+      function formatPosition(lat, lon) {
+        if (lat == null || lon == null) return "No position";
+        return `${lat.toFixed(4)}°, ${lon.toFixed(4)}°`;
+      }
+
+      function formatSpeed(speed) {
+        if (speed == null) return "";
+        return `${speed.toFixed(1)} kts`;
+      }
+
+      async function loadBoats() {
+        try {
+          const raceId = raceSel.value;
+          showLoading();
+
+          // Update race info
+          const selectedOption = raceSel.options[raceSel.selectedIndex];
+          raceTitle.textContent = selectedOption.text;
+          raceDetails.textContent = `Race ID: ${raceId}`;
+          raceInfo.style.display = "block";
+
+          // Call the boats endpoint
+          const boatsR = await fetch(`${API}/races/${encodeURIComponent(raceId)}/boats`);
+          if (!boatsR.ok) {
+            throw new Error(`HTTP ${boatsR.status}: ${boatsR.statusText}`);
+          }
+          const boatsData = await boatsR.json();
+
+          displayBoats(boatsData);
+
+        } catch (error) {
+          showError(`Error: ${error.message}`);
+        }
+      }
+
+      function displayBoats(data) {
+        const allBoats = data.boats || [];
+        // Only show active/connected boats
+        const boats = allBoats.filter(b => b.active || b.live);
+        const activeCount = boats.length;
+
+        boatsCount.textContent = `${activeCount} Connected Boats`;
+
+        if (boats.length === 0) {
+          boatsList.innerHTML = '<div class="no-boats">No boats currently connected</div>';
+          updateMap([]);
+          return;
+        }
+
+        // Sort boats by name
+        boats.sort((a, b) => {
+          return (a.boatName || a.boatId).localeCompare(b.boatName || b.boatId);
+        });
+
+        const boatItems = boats.map(boat => {
+          const isActive = boat.active || boat.live;
+          const lastSeen = boat.lastSeen || boat.telemetry?.t || boat.timestamp;
+          const lat = boat.telemetry?.lat || boat.lat;
+          const lon = boat.telemetry?.lon || boat.lon;
+          const speed = boat.telemetry?.sog || boat.telemetry?.speed || boat.speed;
+          const heading = boat.telemetry?.cog || boat.telemetry?.heading || boat.heading;
+
+          return `
+            <div class="boat-item">
+              <div class="boat-info">
+                <div class="boat-name">${boat.boatName || boat.boatId}</div>
+                <div class="boat-details">ID: ${boat.boatId}</div>
+                <div class="boat-telemetry">
+                  Position: ${formatPosition(lat, lon)} |
+                  Speed: ${formatSpeed(speed)} |
+                  Last seen: ${formatTime(lastSeen)}
+                </div>
+              </div>
+              <div class="boat-status">
+                <div class="status-dot ${isActive ? 'active' : ''}"></div>
+                <span class="status-text ${isActive ? 'active' : 'inactive'}">
+                  ${isActive ? 'Live' : 'Offline'}
+                </span>
+              </div>
+            </div>
+          `;
+        }).join('');
+
+        boatsList.innerHTML = `<div class="boat-list">${boatItems}</div>`;
+
+        // Update the map with boat positions
+        updateMap(boats);
+      }
+
+      function toggleAutoRefresh() {
+        const button = document.getElementById("auto-refresh");
+
+        if (autoRefreshInterval) {
+          clearInterval(autoRefreshInterval);
+          autoRefreshInterval = null;
+          button.textContent = "⏱️ Auto Refresh";
+          button.style.background = "#007bff";
+        } else {
+          autoRefreshInterval = setInterval(loadBoats, 10000); // Refresh every 10 seconds
+          button.textContent = "⏹️ Stop Auto";
+          button.style.background = "#28a745";
+          loadBoats(); // Immediate refresh
+        }
+      }
+
+      // Event listeners
+      document.getElementById("load").onclick = loadBoats;
+      document.getElementById("auto-refresh").onclick = toggleAutoRefresh;
+      raceSel.onchange = loadBoats;
+
+      // Initialize
+      initMap();
+      loadRaces().then(loadBoats).catch(e => showError(String(e)));
+    </script>
+  </body>
+</html>

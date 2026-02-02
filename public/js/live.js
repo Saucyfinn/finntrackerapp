@@ -1,159 +1,178 @@
-/* public/js/live.js */
-
+/* public/js/live.js - Live Tracking UI (compatible with current API Worker) */
 (function () {
-  const wsStatus = document.getElementById("wsStatus");
+  const statusEl = document.getElementById("connectionStatus");
   const raceSelect = document.getElementById("raceSelect");
-  const loadRaceBtn = document.getElementById("loadRaceBtn");
   const followSelect = document.getElementById("followSelect");
-  const followBtn = document.getElementById("followBtn");
-  const resetViewBtn = document.getElementById("resetViewBtn");
-  const boatList = document.getElementById("boatList");
+  const boatsList = document.getElementById("boatsList");
 
-  let currentRaceId = null;
+  const POLL_SECONDS = 3;          // UI refresh rate
+  const WITHIN_SECONDS = 86400;    // include last 24h by default
+
   let pollTimer = null;
-  let followBoatId = ""; // empty means "all boats"
 
-  function setStatus(ok, text) {
-    wsStatus.textContent = `● ${text}`;
-    wsStatus.style.color = ok ? "green" : "crimson";
+  function setStatus(text, ok) {
+    if (!statusEl) return;
+    statusEl.textContent = text;
+    statusEl.style.color = ok ? "green" : "red";
   }
 
-  function renderBoatList(activeBoats) {
-    if (!activeBoats || activeBoats.length === 0) {
-      boatList.textContent = "(no boats connected yet)";
-      return;
+  function populateRaceDropdown(races) {
+    if (!raceSelect) return;
+    raceSelect.innerHTML = "";
+
+    // races: [{raceId,title,fleets:[{id,name}]}]
+    for (const r of races) {
+      // If the backend already provides individual race IDs (AUSNATS-2026-R01 etc),
+      // just list them directly.
+      const opt = document.createElement("option");
+      opt.value = r.raceId;
+      opt.textContent = r.title || r.raceId;
+      raceSelect.appendChild(opt);
     }
 
-    // Simple list
-    const ul = document.createElement("ul");
-    ul.style.margin = "0";
-    ul.style.paddingLeft = "16px";
-
-    for (const b of activeBoats) {
-      const li = document.createElement("li");
-      li.textContent = `${b.boatId}`;
-      ul.appendChild(li);
+    if (raceSelect.options.length === 0) {
+      const opt = document.createElement("option");
+      opt.value = "";
+      opt.textContent = "(no races found)";
+      raceSelect.appendChild(opt);
     }
-
-    boatList.innerHTML = "";
-    boatList.appendChild(ul);
   }
 
-  function renderFollowDropdown(activeBoats) {
-    const previous = followSelect.value;
+  function populateFollowDropdown(boats) {
+    if (!followSelect) return;
+    const current = followSelect.value;
+    followSelect.innerHTML = "";
 
-    // Keep first option
-    followSelect.innerHTML = `<option value="">-- All boats --</option>`;
+    const allOpt = document.createElement("option");
+    allOpt.value = "";
+    allOpt.textContent = "-- All boats --";
+    followSelect.appendChild(allOpt);
 
-    for (const b of activeBoats) {
+    for (const b of boats) {
       const opt = document.createElement("option");
       opt.value = b.boatId;
-      opt.textContent = b.boatId;
+      opt.textContent = b.boatName || b.boatId;
       followSelect.appendChild(opt);
     }
 
-    // Restore selection if still present
-    const stillThere = [...followSelect.options].some(o => o.value === previous);
-    followSelect.value = stillThere ? previous : "";
-    followBoatId = followSelect.value || "";
+    // preserve selection if still present
+    const stillThere = Array.from(followSelect.options).some(o => o.value === current);
+    followSelect.value = stillThere ? current : "";
   }
 
-  function applyFollow(activeBoats) {
-    if (!followBoatId) return; // all boats
+  function renderBoatsList(boats) {
+    if (!boatsList) return;
 
-    const b = activeBoats.find(x => x.boatId === followBoatId);
-    if (!b) return;
+    if (!boats.length) {
+      boatsList.textContent = "(no boats returned)";
+      return;
+    }
 
-    // Pan map to that boat
-    // Use Leaflet global `FinnMap` helper via hard refresh + fit is handled in map.js,
-    // so here we just set view gently by calling invalidate+pan using the map canvas nudge.
-    // If you want explicit pan, add a FinnMap.panTo API later.
+    const now = Date.now();
+    const lines = boats
+      .slice()
+      .sort((a, b) => (b.lastSeen || 0) - (a.lastSeen || 0))
+      .map(b => {
+        const ageSec = b.lastSeen ? Math.round((now - b.lastSeen) / 1000) : null;
+        const ageTxt = (ageSec == null) ? "?" : `${ageSec}s ago`;
+        const lat = (typeof b.lat === "number") ? b.lat.toFixed(5) : "—";
+        const lng = (typeof b.lng === "number") ? b.lng.toFixed(5) : "—";
+        const hdg = (typeof b.heading === "number") ? Math.round(b.heading) : "—";
+        const sog = (typeof b.speed === "number") ? b.speed.toFixed(1) : "—";
+        return `${b.boatId}  ${b.boatName || ""}  @ ${lat}, ${lng}  hdg:${hdg}  sog:${sog}  (${ageTxt})`;
+      });
+
+    boatsList.textContent = lines.join("\n");
   }
 
   async function loadRaces() {
     try {
-      const data = await window.FinnAPI.listRaces();
+      const races = await window.FinnAPI.getRaces();
+      populateRaceDropdown(races);
 
-      // Expect array of { id, name } or similar
-      const races = Array.isArray(data) ? data : (data?.races || []);
-      raceSelect.innerHTML = "";
+      // If URL has ?raceId=... preselect it
+      const params = new URLSearchParams(window.location.search);
+      const wanted = params.get("raceId");
+      if (wanted) raceSelect.value = wanted;
 
-      for (const r of races) {
-        const id = r.id || r.raceId || r.slug || r.name;
-        const name = r.name || r.title || id;
-        if (!id) continue;
-
-        const opt = document.createElement("option");
-        opt.value = id;
-        opt.textContent = name;
-        raceSelect.appendChild(opt);
-      }
-
-      // Default select first
-      if (!currentRaceId && raceSelect.options.length) {
-        currentRaceId = raceSelect.options[0].value;
-        raceSelect.value = currentRaceId;
-      }
-
-      setStatus(true, "Connected");
+      setStatus("Races loaded", true);
     } catch (e) {
-      console.error("[live.js] loadRaces failed:", e);
-      setStatus(false, "Disconnected");
+      console.error(e);
+      setStatus("Failed to load races", false);
     }
   }
 
-  async function pollBoats() {
-    if (!currentRaceId) return;
+  async function refreshBoatsOnce() {
+    const raceId = raceSelect.value;
+    if (!raceId) return;
 
     try {
-      const boats = await window.FinnAPI.listBoats(currentRaceId, 300);
+      const boats = await window.FinnAPI.getLiveBoats(raceId, WITHIN_SECONDS);
 
-      // Update map and get normalized list back
-      const activeBoats = window.FinnMap.updateBoats(currentRaceId, boats);
+      // Update map markers (map.js expects lat/lng/heading/boatId)
+      if (window.FinnMap && typeof window.FinnMap.updateBoats === "function") {
+        window.FinnMap.updateBoats(boats);
+      }
 
-      renderBoatList(activeBoats);
-      renderFollowDropdown(activeBoats);
-      applyFollow(activeBoats);
+      populateFollowDropdown(boats);
+      renderBoatsList(boats);
 
-      setStatus(true, activeBoats.length ? "Connected" : "No boats yet");
+      setStatus(`Loaded ${boats.length} boats`, true);
+
+      // If "follow" set, keep centering
+      const followId = followSelect.value;
+      if (followId && window.FinnMap && typeof window.FinnMap.followBoat === "function") {
+        window.FinnMap.followBoat(followId);
+      }
     } catch (e) {
-      console.error("[live.js] pollBoats failed:", e);
-      setStatus(false, "Disconnected");
-      boatList.textContent = "(no boats connected yet)";
+      console.error(e);
+      setStatus("Failed to fetch boats (check CORS / route / API base)", false);
+      if (boatsList) boatsList.textContent = String(e.message || e);
     }
   }
 
   function startPolling() {
-    if (pollTimer) clearInterval(pollTimer);
-    pollTimer = setInterval(pollBoats, 1000);
-    pollBoats(); // immediate
+    stopPolling();
+    refreshBoatsOnce();
+    pollTimer = setInterval(refreshBoatsOnce, POLL_SECONDS * 1000);
   }
 
-  loadRaceBtn.addEventListener("click", () => {
-    currentRaceId = raceSelect.value;
-    window.FinnMap.setRace(currentRaceId);
+  function stopPolling() {
+    if (pollTimer) clearInterval(pollTimer);
+    pollTimer = null;
+  }
 
-    // This is the key “blank map after Load Race” fix:
-    // force Leaflet to re-measure after any layout changes.
-    setTimeout(() => window.FinnMap.hardRefreshSize(), 25);
-    setTimeout(() => window.FinnMap.hardRefreshSize(), 250);
-
+  // Wire up UI
+  document.getElementById("loadRaceBtn")?.addEventListener("click", () => {
     startPolling();
   });
 
-  followBtn.addEventListener("click", () => {
-    followBoatId = followSelect.value || "";
-    // Next poll will apply follow logic
+  followSelect?.addEventListener("change", () => {
+    const id = followSelect.value;
+    if (!window.FinnMap) return;
+    if (!id) {
+      window.FinnMap.resetView?.();
+    } else {
+      window.FinnMap.followBoat?.(id);
+    }
   });
 
-  resetViewBtn.addEventListener("click", () => {
-    followBoatId = "";
-    followSelect.value = "";
-    // allow map.js to auto fit once per race again
-    window.FinnMap.setRace(currentRaceId);
+  document.getElementById("followBtn")?.addEventListener("click", () => {
+    const id = followSelect.value;
+    if (id && window.FinnMap?.followBoat) window.FinnMap.followBoat(id);
+  });
+
+  document.getElementById("resetViewBtn")?.addEventListener("click", () => {
+    window.FinnMap?.resetView?.();
   });
 
   // Boot
-  window.FinnMap.init();
-  loadRaces().then(() => startPolling());
+  window.addEventListener("DOMContentLoaded", async () => {
+    setStatus("Loading races…", false);
+    await loadRaces();
+
+    // Auto-start if URL has ?autorun=1
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("autorun") === "1") startPolling();
+  });
 })();

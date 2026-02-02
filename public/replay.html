@@ -1,69 +1,28 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>FinnTrack Replay</title>
-
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>FinnTrack – Replay</title>
   <link rel="stylesheet" href="/css/style.css" />
-
-  <!-- Leaflet -->
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-
-  <style>
-    .layout { display:grid; grid-template-columns: 360px 1fr; gap: 12px; padding: 12px; }
-    .panel { border:1px solid rgba(0,0,0,0.12); border-radius:12px; padding:12px; background:#fff; }
-    #map { width:100%; height: calc(100vh - 24px); border-radius:12px; }
-    .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
-    select, button, input { padding:8px; border-radius:10px; border:1px solid rgba(0,0,0,0.18); }
-    .small { font-size:12px; opacity:0.75; }
-    .finn-marker img { width:36px; height:36px; transform: rotate(var(--rot, 0deg)); transform-origin: 50% 50%; }
-  </style>
 </head>
 <body>
-  <div class="layout">
-    <div class="panel">
-      <h2 style="margin-top:0;">Replay</h2>
+<header style="padding:12px 16px;border-bottom:1px solid #eee;display:flex;justify-content:space-between;align-items:center">
+  <div style="font-weight:800;font-size:22px">FinnTrack</div>
+  <nav>
+    <a href="/">Home</a>
+    <a href="/live">Live</a>
+    <a href="/replay">Replay</a>
+  </nav>
+</header>
 
-      <div class="row" style="margin-bottom:10px;">
-        <label for="raceSelect" style="min-width:62px;">Race</label>
-        <select id="raceSelect" style="flex:1; min-width:200px;"></select>
-        <button id="loadRaceBtn">Load</button>
-      </div>
+<main style="padding:16px">
+  <h1>Replay</h1>
+  <p>This page is wired for the API, but the UI is still being iterated. Use the API endpoints directly for now.</p>
+</main>
 
-      <div class="row" style="margin-bottom:10px;">
-        <label for="boatSelect" style="min-width:62px;">Boat</label>
-        <select id="boatSelect" style="flex:1; min-width:200px;"></select>
-        <button id="loadBoatBtn">Trail</button>
-      </div>
-
-      <div class="row" style="margin-bottom:10px;">
-        <label for="maxPoints" style="min-width:62px;">Points</label>
-        <input id="maxPoints" type="number" min="50" max="2000" value="400" style="width:110px;">
-        <button id="clearBtn">Clear</button>
-      </div>
-
-      <div class="panel" style="padding:10px;">
-        <div style="font-weight:700;margin-bottom:6px;">Status</div>
-        <div id="status" class="small">Ready.</div>
-      </div>
-
-      <div class="small" style="margin-top:10px;">
-        <a href="/live.html">← Live</a>
-        <span style="float:right;">API: <span id="apiBase"></span></span>
-      </div>
-    </div>
-
-    <div id="map"></div>
-  </div>
-
-  <script src="/js/config.js"></script>
-  <script src="/js/api.js"></script>
-  <script src="/js/replay.js"></script>
-
-  <script>
-    document.getElementById("apiBase").textContent = window.FINNTRACK_API_BASE || "(relative)";
-  </script>
+<script src="/js/config.js"></script>
+<script src="/js/api.js"></script>
+<script src="/js/replay.js"></script>
 </body>
 </html>

@@ -1,200 +1,174 @@
-/* public/js/map.js */
-
+/* public/js/map.js
+ * Leaflet map + Finn markers.
+ * Accepts boats in either form:
+ *   - flattened: { boatId, lat, lng, heading }
+ *   - nested:    { boatId, telemetry: { lat, lon, heading/cog, t } }
+ */
 (function () {
-  let map;
-  let baseLayer;
-  const markers = new Map(); // boatId -> L.Marker
-  const trails = new Map();  // boatId -> L.Polyline (optional, can remove)
-  let lastBoundsRaceId = null;
+  if (!window.L) {
+    console.error("Leaflet (window.L) not found. Did you include leaflet.js?");
+    return;
+  }
 
-  function ensureMap() {
+  let map = null;
+  let currentRaceId = null;
+
+  const markers = new Map(); // boatId -> marker
+  let followBoatId = null;
+  let hasFit = false;
+
+  function normalizeBoat(b) {
+    const t = (b && b.telemetry) ? b.telemetry : b;
+    const lat = t && typeof t.lat !== "undefined" ? Number(t.lat) : null;
+    const lng = t
+      ? (typeof t.lng !== "undefined" ? Number(t.lng) : (typeof t.lon !== "undefined" ? Number(t.lon) : null))
+      : null;
+
+    const heading = t && (t.heading ?? t.cog ?? t.course ?? 0);
+    const ts = t && (t.t ?? t.timestamp ?? t.ts ?? null);
+
+    return {
+      boatId: b.boatId || b.id || b.deviceId || b.tid,
+      boatName: b.boatName || b.name || b.boatId || b.id,
+      lat: Number.isFinite(lat) ? lat : null,
+      lng: Number.isFinite(lng) ? lng : null,
+      heading: Number.isFinite(Number(heading)) ? Number(heading) : 0,
+      timestamp: typeof ts === "number" ? ts : null,
+      raw: b
+    };
+  }
+
+  function finnDivIcon(headingDeg) {
+    const deg = Number.isFinite(Number(headingDeg)) ? Number(headingDeg) : 0;
+    const html = `
+      <div class="finn-marker" style="transform: rotate(${deg}deg);">
+        ⛵
+      </div>`;
+    return L.divIcon({
+      className: "finn-div-icon",
+      html,
+      iconSize: [24, 24],
+      iconAnchor: [12, 12]
+    });
+  }
+
+  function init(mapElId = "map") {
     if (map) return map;
 
-    map = L.map("map", {
-      preferCanvas: true,
-      zoomControl: true,
-      attributionControl: true
-    });
+    map = L.map(mapElId, { zoomControl: true }).setView([-43.53, 172.63], 10);
 
-    baseLayer = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
       maxZoom: 19,
-      crossOrigin: true
+      attribution: "&copy; OpenStreetMap contributors"
     }).addTo(map);
 
-    // Default view (Christchurch-ish)
-    map.setView([-43.53, 172.62], 11);
-
-    // Handle window resizes
-    window.addEventListener("resize", () => hardRefreshSize(), { passive: true });
+    // minimal CSS fallback if you don't have style.css
+    const style = document.createElement("style");
+    style.textContent = `
+      .finn-div-icon { background: transparent; border: none; }
+      .finn-marker { font-size: 18px; line-height: 18px; transform-origin: 50% 50%; }
+    `;
+    document.head.appendChild(style);
 
     return map;
   }
 
-  function hardRefreshSize() {
-    if (!map) return;
-    // invalidate size fixes 90% of blank/white issues
-    map.invalidateSize(true);
+  function setRace(raceId) {
+    currentRaceId = raceId;
+    followBoatId = null;
+    hasFit = false;
 
-    // Sometimes Leaflet canvas needs a nudge to repaint
-    // (especially after flex/layout changes)
-    const center = map.getCenter();
-    map.panTo([center.lat + 1e-8, center.lng + 1e-8], { animate: false });
-    map.panTo([center.lat, center.lng], { animate: false });
-  }
-
-  function finnDivIcon() {
-    return L.divIcon({
-      className: "",
-      html: `
-        <div class="finn-marker">
-          <img src="/assets/boat.svg" alt="Finn" />
-        </div>
-      `,
-      iconSize: [36, 36],
-      iconAnchor: [18, 18]
-    });
-  }
-
-  function setMarkerRotation(marker, degrees) {
-    const el = marker.getElement();
-    if (!el) return;
-    // our CSS uses --rot
-    el.style.setProperty("--rot", `${degrees}deg`);
-  }
-
-  function upsertBoat(boatId, lat, lng, headingDeg) {
-    ensureMap();
-
-    let m = markers.get(boatId);
-    if (!m) {
-      m = L.marker([lat, lng], { icon: finnDivIcon(), interactive: false }).addTo(map);
-      markers.set(boatId, m);
-    } else {
-      m.setLatLng([lat, lng]);
+    // clear markers
+    for (const m of markers.values()) {
+      try { m.remove(); } catch {}
     }
-
-    setMarkerRotation(m, headingDeg || 0);
-    return m;
+    markers.clear();
   }
 
-  function setTrail(boatId, points) {
-    // points: [[lat,lng], ...]
-    ensureMap();
-    let pl = trails.get(boatId);
-    if (!points || points.length < 2) {
-      if (pl) {
-        pl.remove();
-        trails.delete(boatId);
-      }
-      return;
-    }
-    if (!pl) {
-      pl = L.polyline(points, { weight: 2, opacity: 0.6 }).addTo(map);
-      trails.set(boatId, pl);
-    } else {
-      pl.setLatLngs(points);
-    }
-  }
+  function updateBoats(raceId, boatsObjOrArray) {
+    if (!map) init("map");
+    if (raceId && raceId !== currentRaceId) setRace(raceId);
 
-  function clearMissing(activeBoatIds) {
-    for (const [id, m] of markers.entries()) {
-      if (!activeBoatIds.has(id)) {
-        m.remove();
-        markers.delete(id);
+    const list = Array.isArray(boatsObjOrArray)
+      ? boatsObjOrArray
+      : (boatsObjOrArray && boatsObjOrArray.boats ? boatsObjOrArray.boats : []);
+
+    const live = [];
+    const seen = new Set();
+
+    for (const raw of list) {
+      const b = normalizeBoat(raw);
+      if (!b.boatId || b.lat === null || b.lng === null) continue;
+
+      seen.add(b.boatId);
+      live.push(b);
+
+      const icon = finnDivIcon(b.heading);
+
+      if (!markers.has(b.boatId)) {
+        const marker = L.marker([b.lat, b.lng], { icon }).addTo(map);
+        marker.bindPopup(`<b>${escapeHtml(b.boatName || b.boatId)}</b>`);
+        markers.set(b.boatId, marker);
+      } else {
+        const marker = markers.get(b.boatId);
+        marker.setLatLng([b.lat, b.lng]);
+        marker.setIcon(icon);
       }
     }
-    for (const [id, pl] of trails.entries()) {
-      if (!activeBoatIds.has(id)) {
-        pl.remove();
-        trails.delete(id);
+
+    // remove missing boats
+    for (const [boatId, marker] of Array.from(markers.entries())) {
+      if (!seen.has(boatId)) {
+        try { marker.remove(); } catch {}
+        markers.delete(boatId);
       }
+    }
+
+    // fit once
+    if (!hasFit && live.length > 0) {
+      const bounds = L.latLngBounds(live.map(b => [b.lat, b.lng]));
+      map.fitBounds(bounds.pad(0.2));
+      hasFit = true;
+    }
+
+    // follow
+    if (followBoatId && markers.has(followBoatId)) {
+      const m = markers.get(followBoatId);
+      map.panTo(m.getLatLng(), { animate: true });
+    }
+
+    // newest first
+    live.sort((a, b) => (b.timestamp ?? 0) - (a.timestamp ?? 0));
+    return live;
+  }
+
+  function setFollow(boatId) {
+    followBoatId = boatId || null;
+  }
+
+  function followBoat(boatId) {
+    setFollow(boatId);
+    if (boatId && markers.has(boatId)) {
+      const m = markers.get(boatId);
+      map.panTo(m.getLatLng(), { animate: true });
     }
   }
 
-  function fitToBoatsOncePerRace(raceId, boats) {
-    if (!boats || boats.length === 0) return;
-    if (raceId && lastBoundsRaceId === raceId) return;
-
-    const latlngs = boats
-      .map(b => [Number(b.lat), Number(b.lng)])
-      .filter(([la, lo]) => Number.isFinite(la) && Number.isFinite(lo));
-
-    if (latlngs.length === 0) return;
-
-    lastBoundsRaceId = raceId;
-    const bounds = L.latLngBounds(latlngs);
-    map.fitBounds(bounds.pad(0.25), { animate: false });
-    hardRefreshSize();
+  function resetView() {
+    hasFit = false;
+    followBoatId = null;
+    if (map) map.setView([-43.53, 172.63], 10);
   }
 
-  // Public API used by live.js
-  window.FinnMap = {
-    init() {
-      ensureMap();
-      // Give Leaflet a moment after load to size correctly
-      setTimeout(() => hardRefreshSize(), 50);
-      setTimeout(() => hardRefreshSize(), 250);
-    },
+  function escapeHtml(s) {
+    return String(s || "").replace(/[&<>"']/g, (c) => ({
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#39;"
+    }[c]));
+  }
 
-    hardRefreshSize,
-
-    setRace(raceId) {
-      // allow re-fit on new race
-      lastBoundsRaceId = null;
-      // Also clear map state if you want a clean slate:
-      // markers.forEach(m => m.remove()); markers.clear();
-      // trails.forEach(pl => pl.remove()); trails.clear();
-      setTimeout(() => hardRefreshSize(), 50);
-    },
-
-    updateBoats(raceId, boatsObjOrArray) {
-      ensureMap();
-
-      // Backend sometimes returns {} instead of []
-      let boats = [];
-      if (Array.isArray(boatsObjOrArray)) {
-        boats = boatsObjOrArray;
-      } else if (boatsObjOrArray && typeof boatsObjOrArray === "object") {
-        boats = Object.values(boatsObjOrArray);
-      }
-
-      // Normalize + filter
-      const active = [];
-      for (const b of boats) {
-        const lat = Number(b.lat);
-        const lng = Number(b.lng);
-        if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue;
-
-        const id = String(b.boatId || b.id || "");
-        if (!id) continue;
-
-        const heading = Number(b.heading ?? b.cog ?? 0);
-        active.push({
-          boatId: id,
-          lat,
-          lng,
-          heading,
-          // optional
-          timestamp: b.timestamp ?? b.tst ?? null,
-          speed: b.speed ?? b.vel ?? null
-        });
-      }
-
-      // Upsert markers
-      const activeIds = new Set();
-      for (const b of active) {
-        activeIds.add(b.boatId);
-        upsertBoat(b.boatId, b.lat, b.lng, b.heading);
-      }
-      clearMissing(activeIds);
-
-      // Fit once per race (optional but useful)
-      fitToBoatsOncePerRace(raceId, active);
-
-      // Ensure map doesn’t go white after updates
-      hardRefreshSize();
-
-      return active; // return normalized list for UI
-    }
-  };
+  window.FinnMap = { init, setRace, updateBoats, setFollow, followBoat, resetView };
 })();
