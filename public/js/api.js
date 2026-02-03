@@ -1,6 +1,7 @@
 /* public/js/api.js - FinnTrack API (matches current simple backend) */
 (function () {
-  window.FINNTRACK_API_BASE = window.FINNTRACK_API_BASE || "https://api.finntracker.org";
+  window.FINNTRACK_API_BASE = "https://finntrack-api-worker.hvrdfbj65m.workers.dev";
+
   const API_BASE = String(window.FINNTRACK_API_BASE).replace(/\/$/, "");
 
   async function jget(path) {
