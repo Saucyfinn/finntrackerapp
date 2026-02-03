@@ -5,26 +5,260 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>FinnTrack</title>
   <link rel="stylesheet" href="/css/style.css" />
+
+  <style>
+    .main-content {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 24px;
+    }
+    .hero {
+      text-align: center;
+      margin-bottom: 32px;
+    }
+    .hero h1 {
+      font-size: 3rem;
+      margin-bottom: 16px;
+      color: var(--brand);
+    }
+    .hero p {
+      font-size: 1.2rem;
+      color: #666;
+      margin-bottom: 24px;
+    }
+    .race-selector {
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 24px;
+      margin-bottom: 32px;
+    }
+    .race-selector h2 {
+      margin-top: 0;
+      margin-bottom: 16px;
+    }
+    .form-group {
+      margin-bottom: 16px;
+    }
+    .form-group label {
+      display: block;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+    .form-group select {
+      width: 100%;
+      padding: 12px;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      font-size: 1rem;
+    }
+    .button-group {
+      display: flex;
+      gap: 12px;
+      margin-top: 20px;
+    }
+    .btn {
+      padding: 12px 24px;
+      border: none;
+      border-radius: 4px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .btn-primary {
+      background: var(--brand);
+      color: white;
+    }
+    .btn-secondary {
+      background: #f5f5f5;
+      color: #333;
+      border: 1px solid var(--border);
+    }
+    .quick-links {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 16px;
+      margin-bottom: 32px;
+    }
+    .quick-link {
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 20px;
+      text-decoration: none;
+      color: inherit;
+      transition: box-shadow 0.2s;
+    }
+    .quick-link:hover {
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    .quick-link h3 {
+      margin: 0 0 8px 0;
+      color: var(--brand);
+    }
+    .status {
+      margin-top: 16px;
+      padding: 12px;
+      border-radius: 4px;
+      font-weight: 600;
+    }
+    .status.loading {
+      background: #fff3cd;
+      color: #856404;
+    }
+    .status.success {
+      background: #d4edda;
+      color: #155724;
+    }
+    .status.error {
+      background: #f8d7da;
+      color: #721c24;
+    }
+  </style>
 </head>
 <body>
-  <header class="topbar">
+  <header>
     <div class="brand">FinnTrack</div>
-    <nav class="nav">
-      <a href="/">Home</a>
+    <nav>
+      <a href="/" class="active">Home</a>
       <a href="/live">Live</a>
       <a href="/replay">Replay</a>
       <a href="/analytics">Analytics</a>
     </nav>
   </header>
 
-  <main class="page">
-    <h1>FinnTrack</h1>
-    <p>API: <code>https://api.finntracker.org</code></p>
-    <ul>
-      <li><a href="/live">Live tracking</a></li>
-      <li><a href="/replay">Replay</a></li>
-      <li><a href="/spectator">Spectator view</a></li>
-    </ul>
+  <main class="main-content">
+    <div class="hero">
+      <h1>FinnTrack</h1>
+      <p>Real-time boat tracking for sailing competitions</p>
+      <p><small>API: <code id="apiBase">https://api.finntracker.org</code></small></p>
+    </div>
+
+    <div class="race-selector">
+      <h2>Select a Race</h2>
+      <form id="raceForm">
+        <div class="form-group">
+          <label for="raceSelect">Available Races:</label>
+          <select id="raceSelect" name="raceId">
+            <option value="">Loading races...</option>
+          </select>
+        </div>
+        <div class="button-group">
+          <a href="#" class="btn btn-primary" id="liveBtn">View Live</a>
+          <a href="#" class="btn btn-secondary" id="replayBtn">View Replay</a>
+        </div>
+      </form>
+      <div id="status" class="status loading" style="display: none;">
+        Loading...
+      </div>
+    </div>
+
+    <div class="quick-links">
+      <a href="/live" class="quick-link">
+        <h3>Live Tracking</h3>
+        <p>Watch boats move in real-time with WebSocket updates and interactive maps.</p>
+      </a>
+      <a href="/replay" class="quick-link">
+        <h3>Race Replay</h3>
+        <p>Review past races with playback controls and historical data visualization.</p>
+      </a>
+      <a href="/analytics" class="quick-link">
+        <h3>Analytics</h3>
+        <p>Detailed performance analysis and race statistics for boats and fleets.</p>
+      </a>
+      <a href="/join" class="quick-link">
+        <h3>Join Race</h3>
+        <p>Register your boat to participate in live tracking during races.</p>
+      </a>
+    </div>
   </main>
+
+  <script src="/js/config.js"></script>
+  <script src="/js/api.js"></script>
+  <script>
+    (function() {
+      const raceSelect = document.getElementById('raceSelect');
+      const liveBtn = document.getElementById('liveBtn');
+      const replayBtn = document.getElementById('replayBtn');
+      const status = document.getElementById('status');
+      const apiBase = document.getElementById('apiBase');
+
+      function showStatus(message, type) {
+        status.textContent = message;
+        status.className = `status ${type}`;
+        status.style.display = 'block';
+      }
+
+      function hideStatus() {
+        status.style.display = 'none';
+      }
+
+      function updateLinks() {
+        const raceId = raceSelect.value;
+        if (raceId) {
+          liveBtn.href = `/live?raceId=${encodeURIComponent(raceId)}`;
+          replayBtn.href = `/replay?raceId=${encodeURIComponent(raceId)}`;
+          liveBtn.style.opacity = '1';
+          replayBtn.style.opacity = '1';
+        } else {
+          liveBtn.href = '/live';
+          replayBtn.href = '/replay';
+          liveBtn.style.opacity = '0.6';
+          replayBtn.style.opacity = '0.6';
+        }
+      }
+
+      async function loadRaces() {
+        try {
+          showStatus('Loading races...', 'loading');
+
+          const races = await window.FinnAPI.getRaces();
+
+          raceSelect.innerHTML = '';
+
+          const defaultOption = document.createElement('option');
+          defaultOption.value = '';
+          defaultOption.textContent = '-- Select a race --';
+          raceSelect.appendChild(defaultOption);
+
+          for (const race of races) {
+            const option = document.createElement('option');
+            option.value = race.raceId;
+            option.textContent = race.title || race.label || race.raceId;
+            raceSelect.appendChild(option);
+          }
+
+          if (races.length === 0) {
+            showStatus('No races found. Check API connection.', 'error');
+          } else {
+            showStatus(`Found ${races.length} race(s)`, 'success');
+            setTimeout(hideStatus, 2000);
+          }
+
+        } catch (error) {
+          console.error('Failed to load races:', error);
+          raceSelect.innerHTML = '<option value="">Failed to load races</option>';
+          showStatus(`Error: ${error.message}`, 'error');
+        }
+
+        updateLinks();
+      }
+
+      // Update API base display
+      if (window.FINNTRACK_API_BASE) {
+        apiBase.textContent = window.FINNTRACK_API_BASE;
+      }
+
+      // Wire up events
+      raceSelect.addEventListener('change', updateLinks);
+
+      // Load races on page load
+      window.addEventListener('DOMContentLoaded', loadRaces);
+    })();
+  </script>
 </body>
 </html>

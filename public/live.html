@@ -1,76 +1,480 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>FinnTrack – Live</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FinnTrack - Live Tracking</title>
 
+  <!-- Leaflet CSS -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+  <!-- Main CSS -->
   <link rel="stylesheet" href="/css/style.css" />
 
   <style>
-    body { margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
-    header { display:flex; justify-content:space-between; align-items:center; padding:12px 16px; border-bottom:1px solid #eee; }
-    .brand { font-size: 22px; font-weight: 800; }
-    nav a { margin-left: 12px; text-decoration:none; color:#06c; }
-    #app { display:flex; height: calc(100vh - 58px); }
-    #sidebar { width: 320px; padding: 12px; border-right:1px solid #eee; overflow:auto; }
-    #map { flex:1; }
-    .section-title { font-weight:700; margin-bottom: 6px; }
-    select, button { width:100%; padding: 8px; margin: 6px 0; }
-    #boatsList { margin: 8px 0 0 18px; font-family: monospace; font-size: 12px; white-space: pre-line; }
-    .row { display:flex; gap:8px; }
-    .row button { width: 50%; }
+    /* Live tracking specific styles */
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+      background: #f5f5f5;
+    }
+
+    header {
+      background: white;
+      border-bottom: 1px solid #e5e5e5;
+      padding: 12px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+
+    .brand {
+      font-size: 24px;
+      font-weight: 800;
+      color: #0b66d6;
+    }
+
+    nav {
+      display: flex;
+      gap: 20px;
+    }
+
+    nav a {
+      text-decoration: none;
+      color: #333;
+      font-weight: 600;
+      padding: 8px 12px;
+      border-radius: 4px;
+      transition: background-color 0.2s;
+    }
+
+    nav a:hover {
+      background-color: #f0f0f0;
+    }
+
+    nav a.active {
+      background-color: #0b66d6;
+      color: white;
+    }
+
+    /* Status banner */
+    .status-banner {
+      padding: 12px 20px;
+      font-weight: 600;
+      display: none;
+      border-radius: 0;
+      margin: 0;
+    }
+
+    .status-banner.info {
+      background-color: #e3f2fd;
+      color: #0d47a1;
+      border-left: 4px solid #2196f3;
+    }
+
+    .status-banner.success {
+      background-color: #e8f5e8;
+      color: #2e7d32;
+      border-left: 4px solid #4caf50;
+    }
+
+    .status-banner.warning {
+      background-color: #fff3e0;
+      color: #ef6c00;
+      border-left: 4px solid #ff9800;
+    }
+
+    .status-banner.error {
+      background-color: #ffebee;
+      color: #c62828;
+      border-left: 4px solid #f44336;
+    }
+
+    /* Main layout */
+    .main-container {
+      display: flex;
+      height: calc(100vh - 60px);
+    }
+
+    .sidebar {
+      width: 350px;
+      background: white;
+      border-right: 1px solid #e5e5e5;
+      padding: 20px;
+      overflow-y: auto;
+      box-shadow: 2px 0 5px rgba(0,0,0,0.1);
+    }
+
+    .map-container {
+      flex: 1;
+      position: relative;
+    }
+
+    #map {
+      width: 100%;
+      height: 100%;
+    }
+
+    /* Sidebar sections */
+    .section {
+      margin-bottom: 25px;
+    }
+
+    .section h3 {
+      margin: 0 0 12px 0;
+      font-size: 18px;
+      font-weight: 700;
+      color: #333;
+      border-bottom: 2px solid #0b66d6;
+      padding-bottom: 5px;
+    }
+
+    .form-group {
+      margin-bottom: 15px;
+    }
+
+    .form-group label {
+      display: block;
+      font-weight: 600;
+      margin-bottom: 5px;
+      color: #555;
+    }
+
+    select, button {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      font-size: 14px;
+      background: white;
+    }
+
+    select:focus, button:focus {
+      outline: none;
+      border-color: #0b66d6;
+      box-shadow: 0 0 0 2px rgba(11, 102, 214, 0.2);
+    }
+
+    button {
+      background: #0b66d6;
+      color: white;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      transition: background-color 0.2s;
+    }
+
+    button:hover:not(:disabled) {
+      background: #0952a5;
+    }
+
+    button:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+
+    .button-group {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    /* Boats table */
+    .boats-table-container {
+      max-height: 400px;
+      overflow-y: auto;
+      border: 1px solid #e5e5e5;
+      border-radius: 6px;
+      background: white;
+    }
+
+    #boatsTable {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    #boatsTable th {
+      background: #f8f9fa;
+      padding: 10px 8px;
+      text-align: left;
+      font-weight: 600;
+      border-bottom: 1px solid #e5e5e5;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    #boatsTable td {
+      padding: 8px;
+      border-bottom: 1px solid #f0f0f0;
+      vertical-align: middle;
+    }
+
+    #boatsTable tbody tr:hover {
+      background-color: #f8f9fa;
+    }
+
+    #boatsTable button {
+      padding: 4px 8px;
+      font-size: 11px;
+      width: auto;
+      min-width: 50px;
+      margin: 0;
+    }
+
+    /* Boat markers */
+    .boat-marker {
+      background: transparent;
+      border: none;
+    }
+
+    .boat-icon {
+      font-size: 20px;
+      text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+      transform-origin: center;
+      transition: transform 0.3s ease;
+    }
+
+    /* Connection status indicator */
+    .connection-status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px;
+      background: #f8f9fa;
+      border-radius: 6px;
+      border: 1px solid #e5e5e5;
+      margin-bottom: 15px;
+    }
+
+    .connection-status .indicator {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: #ccc;
+    }
+
+    .connection-status.connected .indicator {
+      background: #4caf50;
+      animation: pulse 2s infinite;
+    }
+
+    .connection-status.connecting .indicator {
+      background: #ff9800;
+      animation: pulse 1s infinite;
+    }
+
+    .connection-status.error .indicator {
+      background: #f44336;
+    }
+
+    @keyframes pulse {
+      0% { opacity: 1; }
+      50% { opacity: 0.5; }
+      100% { opacity: 1; }
+    }
+
+    /* API info */
+    .api-info {
+      font-size: 11px;
+      color: #666;
+      text-align: center;
+      margin-top: 20px;
+      padding: 10px;
+      background: #f8f9fa;
+      border-radius: 4px;
+    }
+
+    /* Responsive adjustments */
+    @media (max-width: 768px) {
+      .main-container {
+        flex-direction: column;
+      }
+
+      .sidebar {
+        width: 100%;
+        height: 300px;
+        border-right: none;
+        border-bottom: 1px solid #e5e5e5;
+      }
+
+      nav {
+        gap: 10px;
+      }
+
+      nav a {
+        padding: 6px 8px;
+        font-size: 14px;
+      }
+    }
   </style>
 </head>
-
 <body>
-<header>
-  <div class="brand">FinnTrack</div>
-  <nav>
-    <a href="/">Home</a>
-    <a href="/live">Live</a>
-    <a href="/replay">Replay</a>
-    <a href="/analytics">Analytics</a>
-  </nav>
-</header>
+  <!-- Header -->
+  <header>
+    <div class="brand">FinnTrack</div>
+    <nav>
+      <a href="/">Home</a>
+      <a href="/live" class="active">Live</a>
+      <a href="/replay">Replay</a>
+      <a href="/analytics">Analytics</a>
+    </nav>
+  </header>
 
-<div id="app">
-  <div id="sidebar">
-    <div class="section-title">Live Tracking</div>
-    <div id="connectionStatus">🟡 Connecting…</div>
-
-    <hr />
-
-    <div>Race:</div>
-    <select id="raceSelect"></select>
-    <button id="loadRaceBtn">Load Race</button>
-
-    <hr />
-
-    <div>Follow Boat:</div>
-    <select id="followSelect">
-      <option value="">-- All boats --</option>
-    </select>
-
-    <div class="row">
-      <button id="followBtn">Follow</button>
-      <button id="resetViewBtn">Reset View</button>
-    </div>
-
-    <hr />
-
-    <div class="section-title">Boats</div>
-    <div id="boatsList">(loading…)</div>
+  <!-- Status Banner -->
+  <div id="statusBanner" class="status-banner" style="display: none;">
+    Ready
   </div>
 
-  <div id="map"></div>
-</div>
+  <!-- Main Container -->
+  <div class="main-container">
+    <!-- Sidebar -->
+    <div class="sidebar">
+      <!-- Connection Status -->
+      <div class="section">
+        <div class="connection-status" id="connectionStatus">
+          <div class="indicator"></div>
+          <span>Initializing...</span>
+        </div>
+      </div>
 
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="/js/config.js"></script>
-<script src="/js/map.js"></script>
-<script src="/js/api.js"></script>
-<script src="/js/live.js"></script>
+      <!-- Race Selection -->
+      <div class="section">
+        <h3>Race</h3>
+        <div class="form-group">
+          <label for="raceSelect">Select Race:</label>
+          <select id="raceSelect">
+            <option value="">Loading races...</option>
+          </select>
+        </div>
+        <div class="button-group">
+          <button id="connectBtn" disabled>Connect</button>
+          <button id="disconnectBtn" disabled>Disconnect</button>
+        </div>
+      </div>
+
+      <!-- Boat Following -->
+      <div class="section">
+        <h3>Follow Boat</h3>
+        <div class="form-group">
+          <label for="followSelect">Track Boat:</label>
+          <select id="followSelect">
+            <option value="">-- All boats --</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Boats Table -->
+      <div class="section">
+        <h3>Live Boats</h3>
+        <div class="boats-table-container">
+          <table id="boatsTable">
+            <thead>
+              <tr>
+                <th>Boat</th>
+                <th>SOG</th>
+                <th>COG</th>
+                <th>Updated</th>
+                <th>Source</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td colspan="6" style="text-align: center; color: #666; padding: 20px;">
+                  Select a race to view boats
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- API Info -->
+      <div class="api-info" id="apiInfo">
+        API: <span id="currentApiBase">Loading...</span>
+      </div>
+    </div>
+
+    <!-- Map Container -->
+    <div class="map-container">
+      <div id="map"></div>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <!-- FinnTrack Scripts -->
+  <script src="/js/config.js"></script>
+  <script src="/js/api.js"></script>
+  <script src="/js/live.js"></script>
+
+  <script>
+    // Update API info display
+    document.addEventListener('DOMContentLoaded', () => {
+      const apiBaseEl = document.getElementById('currentApiBase');
+      if (apiBaseEl && window.FinnAPI) {
+        apiBaseEl.textContent = window.FinnAPI.getApiBase();
+      }
+    });
+
+    // Update connection status UI
+    function updateConnectionStatusUI(status, message) {
+      const statusEl = document.getElementById('connectionStatus');
+      if (!statusEl) return;
+
+      const indicator = statusEl.querySelector('.indicator');
+      const text = statusEl.querySelector('span');
+
+      statusEl.className = `connection-status ${status}`;
+      if (text) text.textContent = message;
+    }
+
+    // Listen for connection events
+    document.addEventListener('DOMContentLoaded', () => {
+      // Update status when WebSocket connects/disconnects
+      const originalShowStatus = window.showStatus;
+      if (typeof originalShowStatus === 'function') {
+        window.showStatus = function(message, type) {
+          originalShowStatus.call(this, message, type);
+
+          // Update connection indicator
+          if (message.includes('Connected')) {
+            updateConnectionStatusUI('connected', 'Live connected');
+          } else if (message.includes('Connecting')) {
+            updateConnectionStatusUI('connecting', 'Connecting...');
+          } else if (message.includes('failed') || message.includes('error')) {
+            updateConnectionStatusUI('error', 'Connection failed');
+          } else if (message.includes('Polling')) {
+            updateConnectionStatusUI('connecting', 'Polling mode');
+          } else if (message.includes('Disconnected')) {
+            updateConnectionStatusUI('', 'Disconnected');
+          }
+        };
+      }
+
+      // Check if there's a raceId in URL
+      const urlParams = new URLSearchParams(window.location.search);
+      const raceId = urlParams.get('raceId');
+      if (raceId) {
+        console.log('Auto-selecting race from URL:', raceId);
+      }
+    });
+
+    // Debug helpers (remove in production)
+    window.debugLiveTracking = {
+      getState: () => window.LiveTracking?.getState(),
+      getBoats: () => window.LiveTracking?.getBoats(),
+      testAPI: () => window.FinnAPI?.testConnection(),
+      connectWS: () => window.LiveTracking?.connect(),
+      disconnect: () => window.LiveTracking?.disconnect()
+    };
+  </script>
 </body>
 </html>
