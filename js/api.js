@@ -72,14 +72,54 @@
     apiBase: API_BASE,
 
     async getRaces() {
-      const raw = await jget("/races");
-      return normalizeRaces(raw);
+      try {
+        const raw = await jget("/races");
+        return normalizeRaces(raw);
+      } catch (e) {
+        console.log("[FinnAPI] getRaces failed, trying local data");
+        try {
+          const res = await fetch("/data/races.json");
+          if (res.ok) {
+            const data = await res.json();
+            return normalizeRaces(data);
+          }
+        } catch {}
+        throw e;
+      }
     },
 
     async getLiveBoats(raceId, withinSeconds = 86400) {
       const u = `/boats?raceId=${encodeURIComponent(raceId)}&within=${encodeURIComponent(withinSeconds)}`;
-      const raw = await jget(u);
-      return normalizeBoats(raw);
+      try {
+        const raw = await jget(u);
+        return normalizeBoats(raw);
+      } catch (e) {
+        console.log("[FinnAPI] getLiveBoats failed, trying local data");
+        try {
+          const res = await fetch("/data/fleet.json");
+          if (res.ok) {
+            const data = await res.json();
+            // Convert fleet entries to boat format for backward compatibility
+            const boats = (data.entries || []).map(entry => ({
+              boatId: entry.sailNumber,
+              boatName: entry.boatName || entry.sailNumber,
+              skipper: entry.skipper,
+              sailNumber: entry.sailNumber,
+              country: entry.country,
+              active: false, // Mark as inactive since no live data
+              live: false,
+              lat: null,
+              lng: null,
+              heading: 0,
+              speed: 0,
+              timestamp: 0,
+              lastSeen: 0
+            }));
+            return normalizeBoats(boats);
+          }
+        } catch {}
+        throw e;
+      }
     },
 
     async listRaces() {
