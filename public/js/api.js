@@ -113,11 +113,11 @@
       return data.boats || [];
     },
 
-    // GET /ws/live?raceId=RACE_ID → websocket that sends snapshot/update messages
+    // GET /live?raceId=RACE_ID → websocket that sends snapshot/point messages
     createLiveWebSocket(raceId) {
       if (!raceId) throw new Error('Race ID is required');
 
-      const path = `/ws/live?raceId=${encodeURIComponent(raceId)}`;
+      const path = `/live?raceId=${encodeURIComponent(raceId)}`;
       return createWebSocket(path);
     },
 

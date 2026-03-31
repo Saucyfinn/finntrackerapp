@@ -79,7 +79,7 @@
     if (!map) return null;
 
     const lat = boat.lat || boat.latitude;
-    const lng = boat.lng || boat.longitude || boat.lon;
+    const lng = boat.lon || boat.lng || boat.longitude;
     const heading = boat.cog || boat.heading || boat.course || 0;
 
     if (!lat || !lng) return null;
@@ -95,12 +95,12 @@
     const marker = L.marker([lat, lng], { icon }).addTo(map);
 
     // Popup with boat info
-    const speed = formatSpeed(boat.speed || boat.sog);
+    const speed = formatSpeed(boat.sog || boat.speed);
     const headingStr = formatHeading(boat.cog || boat.heading || boat.course);
-    const time = formatTime(boat.timestamp || boat.t || boat.ts);
+    const time = formatTime(boat.t || boat.timestamp || boat.ts);
 
     marker.bindPopup(`
-      <strong>${boat.boatName || boat.name || boat.boatId}</strong><br>
+      <strong>${boat.name || boat.boatName || boat.boatId}</strong><br>
       Speed: ${speed}<br>
       Heading: ${headingStr}<br>
       Last update: ${time}
@@ -114,7 +114,7 @@
     if (!boatId || !map) return;
 
     const lat = boat.lat || boat.latitude;
-    const lng = boat.lng || boat.longitude || boat.lon;
+    const lng = boat.lon || boat.lng || boat.longitude;
 
     if (!lat || !lng) return;
 
@@ -145,7 +145,7 @@
     if (boatId && boats.has(boatId) && map) {
       const boat = boats.get(boatId);
       const lat = boat.lat || boat.latitude;
-      const lng = boat.lng || boat.longitude || boat.lon;
+      const lng = boat.lon || boat.lng || boat.longitude;
 
       if (lat && lng) {
         map.setView([lat, lng], 15, { animate: true });
@@ -159,7 +159,7 @@
     const positions = [];
     boats.forEach(boat => {
       const lat = boat.lat || boat.latitude;
-      const lng = boat.lng || boat.longitude || boat.lon;
+      const lng = boat.lon || boat.lng || boat.longitude;
       if (lat && lng) {
         positions.push([lat, lng]);
       }
@@ -215,7 +215,7 @@
     boats.forEach((boat, boatId) => {
       const option = document.createElement('option');
       option.value = boatId;
-      option.textContent = boat.boatName || boat.name || boatId;
+      option.textContent = boat.name || boat.boatName || boatId;
       followSelect.appendChild(option);
     });
 
@@ -251,10 +251,10 @@
     sortedBoats.forEach(boat => {
       const row = document.createElement('tr');
       row.innerHTML = `
-        <td>${boat.boatName || boat.name || boat.boatId || '—'}</td>
-        <td>${formatSpeed(boat.speed || boat.sog)}</td>
+        <td>${boat.name || boat.boatName || boat.boatId || '—'}</td>
+        <td>${formatSpeed(boat.sog || boat.speed)}</td>
         <td>${formatHeading(boat.cog || boat.heading || boat.course)}</td>
-        <td>${formatTime(boat.timestamp || boat.t || boat.ts)}</td>
+        <td>${formatTime(boat.t || boat.timestamp || boat.ts)}</td>
         <td>${boat.source || 'live'}</td>
         <td><button onclick="window.LiveTracking.selectBoat('${boat.boatId || boat.id}')">Follow</button></td>
       `;
@@ -282,14 +282,14 @@
         });
       }
 
-    } else if (data.type === 'update') {
-      // Incremental update — boat may be a string ID (with data.data holding the BoatView)
-      // or a full boat object
+    } else if (data.type === 'point' || data.type === 'update') {
+      // Incremental update — data.boat is the full boat object
+      // OR data.boat is a string ID with data.data holding the boat
       let boat;
-      if (typeof data.boat === 'string' && data.data) {
-        boat = { ...data.data, boatId: data.boat };
-      } else if (data.boat && typeof data.boat === 'object') {
+      if (data.boat && typeof data.boat === 'object') {
         boat = data.boat;
+      } else if (typeof data.boat === 'string' && data.data) {
+        boat = { ...data.data, boatId: data.boat };
       }
       if (boat) {
         const boatId = boat.boatId || boat.id;
