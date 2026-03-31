@@ -1,264 +1,333 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>FinnTrack</title>
-  <link rel="stylesheet" href="/css/style.css" />
-
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>FinnTrack – Live</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
   <style>
-    .main-content {
-      max-width: 800px;
-      margin: 0 auto;
-      padding: 24px;
-    }
-    .hero {
-      text-align: center;
-      margin-bottom: 32px;
-    }
-    .hero h1 {
-      font-size: 3rem;
-      margin-bottom: 16px;
-      color: var(--brand);
-    }
-    .hero p {
-      font-size: 1.2rem;
-      color: #666;
-      margin-bottom: 24px;
-    }
-    .race-selector {
-      background: white;
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 24px;
-      margin-bottom: 32px;
-    }
-    .race-selector h2 {
-      margin-top: 0;
-      margin-bottom: 16px;
-    }
-    .form-group {
-      margin-bottom: 16px;
-    }
-    .form-group label {
-      display: block;
-      font-weight: 600;
-      margin-bottom: 8px;
-    }
-    .form-group select {
-      width: 100%;
-      padding: 12px;
-      border: 1px solid var(--border);
-      border-radius: 4px;
-      font-size: 1rem;
-    }
-    .button-group {
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; font-family: system-ui, -apple-system, sans-serif; background: #f4f6f8; }
+
+    /* ── Header ───────────────────────────────── */
+    header {
+      height: 48px;
       display: flex;
-      gap: 12px;
-      margin-top: 20px;
-    }
-    .btn {
-      padding: 12px 24px;
-      border: none;
-      border-radius: 4px;
-      font-size: 1rem;
-      font-weight: 600;
-      cursor: pointer;
-      text-decoration: none;
-      display: inline-flex;
       align-items: center;
-      justify-content: center;
+      justify-content: space-between;
+      padding: 0 16px;
+      background: #fff;
+      border-bottom: 1px solid #dde1e7;
+      position: relative;
+      z-index: 400;
     }
-    .btn-primary {
-      background: var(--brand);
-      color: white;
+    .brand { font-size: 22px; font-weight: 800; color: #0066cc; letter-spacing: -0.5px; }
+
+    #pill {
+      font-size: 12px;
+      font-weight: 700;
+      padding: 4px 12px;
+      border-radius: 20px;
+      background: #eee;
+      color: #555;
+      transition: background .3s, color .3s;
     }
-    .btn-secondary {
-      background: #f5f5f5;
-      color: #333;
-      border: 1px solid var(--border);
+    #pill.live    { background: #d4edda; color: #155724; }
+    #pill.polling { background: #fff3cd; color: #856404; }
+    #pill.error   { background: #f8d7da; color: #721c24; }
+
+    /* ── Layout ───────────────────────────────── */
+    .wrap {
+      display: flex;
+      height: calc(100vh - 48px);
     }
-    .quick-links {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-      gap: 16px;
-      margin-bottom: 32px;
+
+    /* ── Sidebar ──────────────────────────────── */
+    aside {
+      width: 260px;
+      min-width: 260px;
+      background: #fff;
+      border-right: 1px solid #dde1e7;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
     }
-    .quick-link {
-      background: white;
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 20px;
-      text-decoration: none;
-      color: inherit;
-      transition: box-shadow 0.2s;
+    .aside-head {
+      padding: 10px 14px;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .6px;
+      color: #888;
+      border-bottom: 1px solid #f0f0f0;
     }
-    .quick-link:hover {
-      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    #boatList {
+      flex: 1;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
     }
-    .quick-link h3 {
-      margin: 0 0 8px 0;
-      color: var(--brand);
+    .brow {
+      padding: 10px 14px;
+      border-bottom: 1px solid #f5f5f5;
+      cursor: pointer;
+      transition: background .12s;
     }
-    .status {
-      margin-top: 16px;
-      padding: 12px;
-      border-radius: 4px;
-      font-weight: 600;
+    .brow:hover  { background: #f0f7ff; }
+    .brow:active { background: #ddeeff; }
+    .brow-name { font-weight: 700; font-size: 14px; color: #0066cc; }
+    .brow-sail { font-size: 11px; color: #888; margin-left: 4px; }
+    .brow-meta { font-size: 12px; color: #666; margin-top: 2px; }
+    .empty { padding: 20px 14px; text-align: center; color: #aaa; font-size: 13px; }
+
+    /* ── Map ──────────────────────────────────── */
+    #mapWrap { flex: 1; position: relative; min-width: 0; }
+    #map     { width: 100%; height: 100%; }
+
+    /* ── Boat icon ────────────────────────────── */
+    .bi { display: flex; flex-direction: column; align-items: center; }
+    .bi-arrow {
+      width: 0; height: 0;
+      border-left: 7px solid transparent;
+      border-right: 7px solid transparent;
+      border-bottom: 20px solid #0066cc;
+      filter: drop-shadow(0 1px 3px rgba(0,0,0,.35));
     }
-    .status.loading {
-      background: #fff3cd;
-      color: #856404;
+    .bi-label {
+      font-size: 11px;
+      font-weight: 700;
+      color: #003a8a;
+      white-space: nowrap;
+      margin-top: 2px;
+      text-shadow: 0 0 3px #fff, 0 0 3px #fff;
     }
-    .status.success {
-      background: #d4edda;
-      color: #155724;
-    }
-    .status.error {
-      background: #f8d7da;
-      color: #721c24;
+
+    /* ── Mobile ───────────────────────────────── */
+    @media (max-width: 580px) {
+      .wrap { flex-direction: column; }
+      aside {
+        order: 2;
+        width: 100%;
+        min-width: 0;
+        height: 190px;
+        min-height: 190px;
+        border-right: none;
+        border-top: 1px solid #dde1e7;
+      }
+      #mapWrap { order: 1; flex: 1; }
+      #boatList { display: flex; flex-wrap: nowrap; overflow-x: auto; overflow-y: hidden; }
+      .brow { min-width: 150px; border-right: 1px solid #f0f0f0; border-bottom: none; }
     }
   </style>
 </head>
 <body>
-  <header>
-    <div class="brand">FinnTrack</div>
-    <nav>
-      <a href="/" class="active">Home</a>
-      <a href="/live">Live</a>
-      <a href="/replay">Replay</a>
-      <a href="/analytics">Analytics</a>
-    </nav>
-  </header>
 
-  <main class="main-content">
-    <div class="hero">
-      <h1>FinnTrack</h1>
-      <p>Real-time boat tracking for sailing competitions</p>
-      <p><small>API: <code id="apiBase">https://api.finntracker.org</code></small></p>
-    </div>
+<header>
+  <div class="brand">FinnTrack</div>
+  <div id="pill">Connecting…</div>
+</header>
 
-    <div class="race-selector">
-      <h2>Select a Race</h2>
-      <form id="raceForm">
-        <div class="form-group">
-          <label for="raceSelect">Available Races:</label>
-          <select id="raceSelect" name="raceId">
-            <option value="">Loading races...</option>
-          </select>
-        </div>
-        <div class="button-group">
-          <a href="#" class="btn btn-primary" id="liveBtn">View Live</a>
-          <a href="#" class="btn btn-secondary" id="replayBtn">View Replay</a>
-        </div>
-      </form>
-      <div id="status" class="status loading" style="display: none;">
-        Loading...
-      </div>
-    </div>
+<div class="wrap">
+  <aside>
+    <div class="aside-head">Boats on water</div>
+    <div id="boatList"><div class="empty">Waiting for data…</div></div>
+  </aside>
+  <div id="mapWrap"><div id="map"></div></div>
+</div>
 
-    <div class="quick-links">
-      <a href="/live" class="quick-link">
-        <h3>Live Tracking</h3>
-        <p>Watch boats move in real-time with WebSocket updates and interactive maps.</p>
-      </a>
-      <a href="/replay" class="quick-link">
-        <h3>Race Replay</h3>
-        <p>Review past races with playback controls and historical data visualization.</p>
-      </a>
-      <a href="/analytics" class="quick-link">
-        <h3>Analytics</h3>
-        <p>Detailed performance analysis and race statistics for boats and fleets.</p>
-      </a>
-      <a href="/join" class="quick-link">
-        <h3>Join Race</h3>
-        <p>Register your boat to participate in live tracking during races.</p>
-      </a>
-    </div>
-  </main>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+<script>
+(function () {
+  'use strict';
 
-  <script src="/js/config.js"></script>
-  <script src="/js/api.js"></script>
-  <script>
-    (function() {
-      const raceSelect = document.getElementById('raceSelect');
-      const liveBtn = document.getElementById('liveBtn');
-      const replayBtn = document.getElementById('replayBtn');
-      const status = document.getElementById('status');
-      const apiBase = document.getElementById('apiBase');
+  /* ── Config ────────────────────────────────── */
+  const RACE_ID  = 'LIVE';
+  const API_BASE = 'https://api.finntracker.org';
+  const WS_URL   = `wss://api.finntracker.org/live?raceId=${RACE_ID}`;
+  const POLL_MS  = 10000;
+  const CENTER   = [-43.53, 172.63];
+  const ZOOM     = 13;
 
-      function showStatus(message, type) {
-        status.textContent = message;
-        status.className = `status ${type}`;
-        status.style.display = 'block';
+  /* ── Map ───────────────────────────────────── */
+  const map = L.map('map', { zoomControl: true }).setView(CENTER, ZOOM);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+  }).addTo(map);
+
+  /* ── Fleet lookup ──────────────────────────── */
+  const fleet = {};   // boatId → { name, sail }
+
+  fetch('/data/fleet.json')
+    .then(r => r.json())
+    .then(data => {
+      (data.boats || data.entries || []).forEach(b => {
+        fleet[b.boatId || b.id] = { name: b.name || b.skipper || b.boatId, sail: b.sail || '' };
+      });
+    })
+    .catch(() => {});
+
+  /* ── State ─────────────────────────────────── */
+  const boats   = new Map();
+  const markers = new Map();
+  let ws        = null;
+  let pollTimer = null;
+  let fitted    = false;
+
+  /* ── Status pill ───────────────────────────── */
+  const pill = document.getElementById('pill');
+  function setStatus(cls, txt) { pill.className = cls; pill.textContent = txt; }
+
+  /* ── Marker factory ────────────────────────── */
+  function makeIcon(boat) {
+    const cog   = boat.cog ?? 0;
+    const info  = fleet[boat.boatId] || {};
+    const label = info.name || boat.name || boat.boatId;
+    return L.divIcon({
+      className: '',
+      html: `<div class="bi">
+               <div class="bi-arrow" style="transform:rotate(${cog}deg)"></div>
+               <div class="bi-label">${label}</div>
+             </div>`,
+      iconSize:   [80, 36],
+      iconAnchor: [40, 10]
+    });
+  }
+
+  function makePopup(boat) {
+    const info  = fleet[boat.boatId] || {};
+    const name  = info.name  || boat.name || boat.boatId;
+    const sail  = info.sail  ? ` &middot; ${info.sail}` : '';
+    const sog   = typeof boat.sog === 'number' ? boat.sog.toFixed(1) + ' kts' : '—';
+    const cog   = typeof boat.cog === 'number' ? Math.round(boat.cog) + '°'   : '—';
+    const age   = boat.t ? Math.round((Date.now() - boat.t) / 1000) : null;
+    const seen  = age === null ? '—' : age < 60 ? `${age}s ago` : `${Math.round(age / 60)}m ago`;
+    return `<b>${name}</b>${sail}<br>Speed: ${sog} &nbsp; COG: ${cog}<br>Last seen: ${seen}`;
+  }
+
+  /* ── Upsert one boat ───────────────────────── */
+  function upsert(boat) {
+    if (!boat?.boatId) return;
+    const lat = +boat.lat, lon = +boat.lon;
+    if (!isFinite(lat) || !isFinite(lon)) return;
+
+    boats.set(boat.boatId, boat);
+
+    let m = markers.get(boat.boatId);
+    if (!m) {
+      m = L.marker([lat, lon], { icon: makeIcon(boat) }).addTo(map);
+      m.on('click', () => { map.setView([lat, lon], Math.max(map.getZoom(), 15)); m.openPopup(); });
+      markers.set(boat.boatId, m);
+    } else {
+      m.setLatLng([lat, lon]);
+      m.setIcon(makeIcon(boat));
+    }
+    m.bindPopup(makePopup(boat));
+
+    if (!fitted) { map.setView([lat, lon], 15); fitted = true; }
+  }
+
+  /* ── Render sidebar ────────────────────────── */
+  function renderList() {
+    const el = document.getElementById('boatList');
+    if (boats.size === 0) { el.innerHTML = '<div class="empty">No boats yet…</div>'; return; }
+
+    const rows = Array.from(boats.values())
+      .sort((a, b) => {
+        const fa = fleet[a.boatId]?.name || a.name || a.boatId;
+        const fb = fleet[b.boatId]?.name || b.name || b.boatId;
+        return fa.localeCompare(fb);
+      })
+      .map(b => {
+        const info = fleet[b.boatId] || {};
+        const name = info.name || b.name || b.boatId;
+        const sail = info.sail ? `<span class="brow-sail">${info.sail}</span>` : '';
+        const sog  = typeof b.sog === 'number' ? b.sog.toFixed(1) + ' kts' : '';
+        const age  = b.t ? Math.round((Date.now() - b.t) / 1000) : null;
+        const seen = age === null ? '' : age < 60 ? `${age}s ago` : `${Math.round(age / 60)}m ago`;
+        const meta = [sog, seen].filter(Boolean).join(' · ');
+        return `<div class="brow" data-id="${b.boatId}">
+          <div class="brow-name">${name}${sail}</div>
+          ${meta ? `<div class="brow-meta">${meta}</div>` : ''}
+        </div>`;
+      });
+
+    el.innerHTML = rows.join('');
+    el.querySelectorAll('.brow').forEach(row => {
+      row.addEventListener('click', () => {
+        const m = markers.get(row.dataset.id);
+        if (m) { map.setView(m.getLatLng(), Math.max(map.getZoom(), 15)); m.openPopup(); }
+      });
+    });
+  }
+
+  /* ── Handle incoming data ──────────────────── */
+  function applySnapshot(arr) {
+    (Array.isArray(arr) ? arr : Object.values(arr || {})).forEach(upsert);
+    renderList();
+  }
+
+  function applyPoint(boat) { upsert(boat); renderList(); }
+
+  /* ── Polling fallback ──────────────────────── */
+  async function poll() {
+    try {
+      const r   = await fetch(`${API_BASE}/boats?raceId=${RACE_ID}`);
+      const j   = await r.json();
+      const arr = j.boats || (Array.isArray(j) ? j : []);
+      applySnapshot(arr);
+      const n = boats.size;
+      setStatus('polling', `Polling · ${n} boat${n !== 1 ? 's' : ''}`);
+    } catch { setStatus('error', 'No connection'); }
+  }
+
+  function startPolling() {
+    if (pollTimer) return;
+    poll();
+    pollTimer = setInterval(poll, POLL_MS);
+  }
+
+  function stopPolling() { clearInterval(pollTimer); pollTimer = null; }
+
+  /* ── WebSocket ─────────────────────────────── */
+  function connect() {
+    if (ws) return;
+    try { ws = new WebSocket(WS_URL); }
+    catch { startPolling(); return; }
+
+    setStatus('', 'Connecting…');
+
+    ws.onopen = () => {
+      stopPolling();
+      setStatus('live', '● Live');
+    };
+
+    ws.onmessage = ({ data }) => {
+      try {
+        const m = JSON.parse(data);
+        if      (m.type === 'snapshot') applySnapshot(m.boats);
+        else if (m.type === 'point')    applyPoint(m.boat);
+      } catch {}
+    };
+
+    ws.onclose = ev => {
+      ws = null;
+      if (ev.code !== 1000) {
+        setStatus('polling', 'Reconnecting…');
+        startPolling();
+        setTimeout(() => { stopPolling(); connect(); }, 12000);
       }
+    };
 
-      function hideStatus() {
-        status.style.display = 'none';
-      }
+    ws.onerror = () => { ws = null; startPolling(); setTimeout(connect, 15000); };
+  }
 
-      function updateLinks() {
-        const raceId = raceSelect.value;
-        if (raceId) {
-          liveBtn.href = `/live?raceId=${encodeURIComponent(raceId)}`;
-          replayBtn.href = `/replay?raceId=${encodeURIComponent(raceId)}`;
-          liveBtn.style.opacity = '1';
-          replayBtn.style.opacity = '1';
-        } else {
-          liveBtn.href = '/live';
-          replayBtn.href = '/replay';
-          liveBtn.style.opacity = '0.6';
-          replayBtn.style.opacity = '0.6';
-        }
-      }
+  /* ── Refresh last-seen timestamps ──────────── */
+  setInterval(renderList, 15000);
 
-      async function loadRaces() {
-        try {
-          showStatus('Loading races...', 'loading');
+  /* ── Boot ──────────────────────────────────── */
+  connect();
 
-          const races = await window.FinnAPI.getRaces();
-
-          raceSelect.innerHTML = '';
-
-          const defaultOption = document.createElement('option');
-          defaultOption.value = '';
-          defaultOption.textContent = '-- Select a race --';
-          raceSelect.appendChild(defaultOption);
-
-          for (const race of races) {
-            const option = document.createElement('option');
-            option.value = race.raceId;
-            option.textContent = race.title || race.label || race.raceId;
-            raceSelect.appendChild(option);
-          }
-
-          if (races.length === 0) {
-            showStatus('No races found. Check API connection.', 'error');
-          } else {
-            showStatus(`Found ${races.length} race(s)`, 'success');
-            setTimeout(hideStatus, 2000);
-          }
-
-        } catch (error) {
-          console.error('Failed to load races:', error);
-          raceSelect.innerHTML = '<option value="">Failed to load races</option>';
-          showStatus(`Error: ${error.message}`, 'error');
-        }
-
-        updateLinks();
-      }
-
-      // Update API base display
-      if (window.FINNTRACK_API_BASE) {
-        apiBase.textContent = window.FINNTRACK_API_BASE;
-      }
-
-      // Wire up events
-      raceSelect.addEventListener('change', updateLinks);
-
-      // Load races on page load
-      window.addEventListener('DOMContentLoaded', loadRaces);
-    })();
-  </script>
+})();
+</script>
 </body>
 </html>
