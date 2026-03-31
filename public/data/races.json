@@ -1,26 +1,55 @@
 {
   "races": [
-    {
-      "raceId": "aus-nats-2026",
-      "title": "Australian Finn Nationals 2026",
-      "fleets": [
-        { "id": "fleet", "name": "Fleet" }
-      ]
-    },
-    {
-      "raceId": "gold-cup-2026",
-      "title": "Finn Gold Cup 2026",
-      "fleets": [
-        { "id": "fleet", "name": "Fleet" }
-      ]
-    },
-    {
-      "raceId": "masters-2026",
-      "title": "Finn Masters 2026",
-      "fleets": [
-        { "id": "fleet", "name": "Fleet" }
-      ]
-    }
+    { "id": "LIVE",     "label": "LIVE" },
+    { "id": "RACE-01",  "label": "Race 1" },
+    { "id": "RACE-02",  "label": "Race 2" },
+    { "id": "RACE-03",  "label": "Race 3" },
+    { "id": "RACE-04",  "label": "Race 4" },
+    { "id": "RACE-05",  "label": "Race 5" },
+    { "id": "RACE-06",  "label": "Race 6" },
+    { "id": "RACE-07",  "label": "Race 7" },
+    { "id": "RACE-08",  "label": "Race 8" },
+    { "id": "RACE-09",  "label": "Race 9" },
+    { "id": "RACE-10",  "label": "Race 10" },
+    { "id": "RACE-11",  "label": "Race 11" },
+    { "id": "RACE-12",  "label": "Race 12" },
+    { "id": "RACE-13",  "label": "Race 13" },
+    { "id": "RACE-14",  "label": "Race 14" },
+    { "id": "RACE-15",  "label": "Race 15" },
+    { "id": "RACE-16",  "label": "Race 16" },
+    { "id": "RACE-17",  "label": "Race 17" },
+    { "id": "RACE-18",  "label": "Race 18" },
+    { "id": "RACE-19",  "label": "Race 19" },
+    { "id": "RACE-20",  "label": "Race 20" },
+    { "id": "RACE-21",  "label": "Race 21" },
+    { "id": "RACE-22",  "label": "Race 22" },
+    { "id": "RACE-23",  "label": "Race 23" },
+    { "id": "RACE-24",  "label": "Race 24" },
+    { "id": "RACE-25",  "label": "Race 25" },
+    { "id": "RACE-26",  "label": "Race 26" },
+    { "id": "RACE-27",  "label": "Race 27" },
+    { "id": "RACE-28",  "label": "Race 28" },
+    { "id": "RACE-29",  "label": "Race 29" },
+    { "id": "RACE-30",  "label": "Race 30" },
+    { "id": "RACE-31",  "label": "Race 31" },
+    { "id": "RACE-32",  "label": "Race 32" },
+    { "id": "RACE-33",  "label": "Race 33" },
+    { "id": "RACE-34",  "label": "Race 34" },
+    { "id": "RACE-35",  "label": "Race 35" },
+    { "id": "RACE-36",  "label": "Race 36" },
+    { "id": "RACE-37",  "label": "Race 37" },
+    { "id": "RACE-38",  "label": "Race 38" },
+    { "id": "RACE-39",  "label": "Race 39" },
+    { "id": "RACE-40",  "label": "Race 40" },
+    { "id": "RACE-41",  "label": "Race 41" },
+    { "id": "RACE-42",  "label": "Race 42" },
+    { "id": "RACE-43",  "label": "Race 43" },
+    { "id": "RACE-44",  "label": "Race 44" },
+    { "id": "RACE-45",  "label": "Race 45" },
+    { "id": "RACE-46",  "label": "Race 46" },
+    { "id": "RACE-47",  "label": "Race 47" },
+    { "id": "RACE-48",  "label": "Race 48" },
+    { "id": "RACE-49",  "label": "Race 49" },
+    { "id": "RACE-50",  "label": "Race 50" }
   ]
 }
-
