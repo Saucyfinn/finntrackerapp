@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FinnTrack</title>
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#1e3a5f">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="FinnTrack">
+  <link rel="apple-touch-icon" href="/icon-192.png">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #1e3a5f 0%, #2d5a87 100%);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .container {
+      background: white;
+      border-radius: 20px;
+      padding: 40px;
+      max-width: 450px;
+      width: 100%;
+      text-align: center;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    }
+    .logo {
+      margin-bottom: 15px;
+    }
+    h1 {
+      font-size: 32px;
+      margin-bottom: 8px;
+      color: #1e3a5f;
+    }
+    .subtitle {
+      color: #666;
+      margin-bottom: 30px;
+      font-size: 14px;
+    }
+    .btn {
+      display: block;
+      width: 100%;
+      padding: 16px;
+      border: none;
+      border-radius: 12px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      margin-bottom: 12px;
+      text-decoration: none;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 5px 20px rgba(0,0,0,0.2);
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, #1e3a5f 0%, #2d5a87 100%);
+      color: white;
+    }
+    .btn-secondary {
+      background: #f0f0f0;
+      color: #333;
+    }
+    .btn-phone {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+    }
+    .divider {
+      display: flex;
+      align-items: center;
+      margin: 20px 0;
+      color: #999;
+      font-size: 12px;
+    }
+    .divider::before, .divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: #ddd;
+    }
+    .divider span {
+      padding: 0 15px;
+    }
+    .footer {
+      margin-top: 20px;
+      font-size: 11px;
+      color: #999;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="logo">
+      <svg viewBox="0 0 120 60" width="120" height="60">
+        <path d="M10 20 Q30 10, 50 20 T90 20 L110 25" stroke="#4a5fa0" stroke-width="8" fill="none" stroke-linecap="round"/>
+        <path d="M5 40 Q25 30, 45 40 T85 40 L105 45" stroke="#4a5fa0" stroke-width="8" fill="none" stroke-linecap="round"/>
+      </svg>
+    </div>
+    <h1>FinnTrack</h1>
+    <p class="subtitle">Live Fleet Tracking for Sailing Races</p>
+    
+    <a href="/map.html" class="btn btn-primary">View Live Map</a>
+    <a href="/join.html" class="btn btn-phone">Join Race</a>
+    
+    <div class="divider"><span>analysis tools</span></div>
+    
+    <a href="/replay.html" class="btn btn-secondary">Replay Tracks</a>
+    <a href="/analytics.html" class="btn btn-secondary">View Analytics</a>
+    
+    <div class="footer">
+      Standalone tracking server - works without external APIs
+    </div>
+  </div>
+</body>
+</html>

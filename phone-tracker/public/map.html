@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FinnTrack - Live Map</title>
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#1e3a5f">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="apple-touch-icon" href="/icon-192.png">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+    #map {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+    }
+    .header {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      background: linear-gradient(135deg, #1e3a5f 0%, #2d5a87 100%);
+      color: white;
+      padding: 12px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      z-index: 1000;
+    }
+    .brand {
+      font-size: 20px;
+      font-weight: 700;
+    }
+    .status {
+      display: flex;
+      gap: 20px;
+      font-size: 14px;
+    }
+    .status-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+    }
+    .dot-boat { background: #ff9500; }
+    .dot-ws { background: #34c759; }
+    .dot-ws.disconnected { background: #ff3b30; }
+    .sidebar {
+      position: fixed;
+      top: 55px;
+      left: 10px;
+      width: 220px;
+      max-height: calc(100vh - 75px);
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+      z-index: 1000;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    .sidebar.collapsed { display: none; }
+    .sidebar-title {
+      padding: 12px 16px;
+      font-weight: 600;
+      background: #f8f9fa;
+      border-bottom: 1px solid #eee;
+      font-size: 14px;
+    }
+    .sidebar-controls {
+      display: flex;
+      gap: 12px;
+      padding: 8px 16px;
+      background: #f0f4f8;
+      border-bottom: 1px solid #ddd;
+    }
+    .toggle-control {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .toggle-control input {
+      cursor: pointer;
+    }
+    .list {
+      flex: 1;
+      overflow-y: auto;
+      max-height: calc(100vh - 180px);
+    }
+    .item {
+      padding: 10px 12px;
+      border-bottom: 1px solid #f0f0f0;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .item:hover {
+      background: #f8f8f8;
+    }
+    .toggle-btn {
+      width: 20px;
+      height: 20px;
+      border: 2px solid #1e3a5f;
+      border-radius: 4px;
+      background: #1e3a5f;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 12px;
+    }
+    .toggle-btn.hidden {
+      background: white;
+      color: transparent;
+    }
+    .item-content {
+      flex: 1;
+      cursor: pointer;
+    }
+    .item-id {
+      font-weight: 600;
+      font-size: 14px;
+    }
+    .item-speed {
+      font-size: 11px;
+      color: #666;
+    }
+    .empty-state {
+      padding: 30px 16px;
+      text-align: center;
+      color: #999;
+      font-size: 13px;
+    }
+    .home-link {
+      display: block;
+      padding: 12px;
+      text-align: center;
+      background: #1e3a5f;
+      color: white;
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 14px;
+    }
+    .map-controls {
+      position: fixed;
+      top: 60px;
+      right: 10px;
+      z-index: 1000;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .map-btn {
+      width: 40px;
+      height: 40px;
+      background: white;
+      border: none;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+      cursor: pointer;
+      font-size: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .map-btn:hover { background: #f0f0f0; }
+    @media (max-width: 600px) {
+      .sidebar {
+        width: 180px;
+        top: 55px;
+        left: 5px;
+      }
+      .status { display: none; }
+    }
+    #map:fullscreen, #map:-webkit-full-screen {
+      width: 100vw !important;
+      height: 100vh !important;
+    }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+  
+  <div class="header">
+    <div class="brand">FinnTrack</div>
+    <div class="status">
+      <div class="status-item">
+        <div class="dot dot-boat"></div>
+        <span><span id="boatCount">0</span> boats</span>
+      </div>
+      <div class="status-item">
+        <div class="dot dot-ws" id="wsDot"></div>
+        <span>Live</span>
+      </div>
+    </div>
+  </div>
+  
+  <div class="sidebar" id="sidebar">
+    <div class="sidebar-title">Boats</div>
+    <div class="sidebar-controls">
+      <label class="toggle-control"><input type="checkbox" id="showTracks" checked> Tracks</label>
+      <label class="toggle-control"><input type="checkbox" id="showNames"> Names</label>
+    </div>
+    <div class="list" id="itemList">
+      <div class="empty-state">No boats connected</div>
+    </div>
+    <a href="/" class="home-link">← Home</a>
+  </div>
+  
+  <div class="map-controls">
+    <button class="map-btn" id="toggleSidebar" title="Toggle list">☰</button>
+    <button class="map-btn" id="fitAllBtn" title="Fit all boats">⊕</button>
+    <button class="map-btn" id="fullscreenBtn" title="Fullscreen">⛶</button>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const initLat = parseFloat(params.get('lat')) || -27.4667;
+    const initLon = parseFloat(params.get('lon')) || 153.1833;
+    const initZoom = parseInt(params.get('zoom')) || 14;
+    const followDevice = params.get('follow');
+    
+    const map = L.map('map').setView([initLat, initLon], initZoom);
+    
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap'
+    }).addTo(map);
+    
+    const boatMarkers = new Map();
+    const phoneMarkers = new Map();
+    const boatTracks = new Map();
+    const boatTrackPoints = new Map();
+    const boats = new Map();
+    const phones = new Map();
+    
+    const itemList = document.getElementById('itemList');
+    const boatCount = document.getElementById('boatCount');
+    const wsDot = document.getElementById('wsDot');
+    const sidebar = document.getElementById('sidebar');
+    const hiddenDevices = new Set();
+    let showTracks = true;
+    let showNames = false;
+    
+    let shouldFollowDevice = !!followDevice;
+    
+    document.getElementById('toggleSidebar').addEventListener('click', () => {
+      sidebar.classList.toggle('collapsed');
+    });
+    
+    document.getElementById('fullscreenBtn').addEventListener('click', () => {
+      const mapEl = document.getElementById('map');
+      if (document.fullscreenElement) {
+        document.exitFullscreen();
+      } else {
+        mapEl.requestFullscreen().catch(e => console.log(e));
+      }
+    });
+    
+    document.getElementById('fitAllBtn').addEventListener('click', fitAllBoats);
+    
+    document.getElementById('showTracks').addEventListener('change', (e) => {
+      showTracks = e.target.checked;
+      boatTracks.forEach((track, id) => {
+        if (showTracks && !hiddenDevices.has(id)) {
+          track.addTo(map);
+        } else {
+          map.removeLayer(track);
+        }
+      });
+    });
+    
+    document.getElementById('showNames').addEventListener('change', (e) => {
+      showNames = e.target.checked;
+      boats.forEach((boat, id) => {
+        if (boatMarkers.has(id)) {
+          const marker = boatMarkers.get(id);
+          marker.setIcon(createBoatIcon(boat.boatId, boat.cog || 0, boat.name));
+        }
+      });
+    });
+    
+    function fitAllBoats() {
+      const allMarkers = [...boatMarkers.values(), ...phoneMarkers.values()];
+      if (allMarkers.length > 0) {
+        const group = L.featureGroup(allMarkers);
+        map.fitBounds(group.getBounds().pad(0.1));
+      }
+    }
+    
+    const nationalColors = {
+      'AUS': { bg: '#FFD700', text: '#000' },
+      'NZL': { bg: '#000000', text: '#fff' },
+      'GBR': { bg: '#012169', text: '#fff' },
+      'USA': { bg: '#3C3B6E', text: '#fff' },
+      'GER': { bg: '#000000', text: '#FFCC00' },
+      'FRA': { bg: '#0055A4', text: '#fff' },
+      'ITA': { bg: '#009246', text: '#fff' },
+      'ESP': { bg: '#AA151B', text: '#F1BF00' },
+      'NED': { bg: '#FF6600', text: '#fff' },
+      'SWE': { bg: '#006AA7', text: '#FECC00' },
+      'DEN': { bg: '#C8102E', text: '#fff' },
+      'CAN': { bg: '#FF0000', text: '#fff' },
+      'JPN': { bg: '#BC002D', text: '#fff' },
+      'POL': { bg: '#DC143C', text: '#fff' },
+      'FIN': { bg: '#003580', text: '#fff' },
+      'default': { bg: '#1e3a5f', text: '#fff' }
+    };
+    
+    function getCountryFromSail(sailNum) {
+      if (!sailNum) return 'default';
+      const match = sailNum.match(/^([A-Z]{2,3})/i);
+      return match ? match[1].toUpperCase() : 'default';
+    }
+    
+    function createBoatIcon(sailNum, heading, skipperName) {
+      const country = getCountryFromSail(sailNum);
+      const colors = nationalColors[country] || nationalColors['default'];
+      const rotation = (heading || 0);
+      const labelText = showNames && skipperName ? `${sailNum} - ${skipperName}` : (sailNum || '?');
+      
+      return L.divIcon({
+        className: 'boat-marker',
+        html: `<div style="position: relative; width: 150px; height: 28px;">
+          <div style="position: absolute; left: 0; width: 24px; height: 28px; transform: rotate(${rotation}deg); transform-origin: center center;">
+            <svg viewBox="0 0 44 52" width="24" height="28">
+              <path d="M22 2 L40 18 L38 42 Q22 50 6 42 L4 18 Z" 
+                    fill="${colors.bg}" stroke="white" stroke-width="3"/>
+              <polygon points="22,8 32,20 22,18 12,20" fill="white" opacity="0.9"/>
+            </svg>
+          </div>
+          <div style="position: absolute; left: 26px; top: 6px; white-space: nowrap;
+            font-size: 11px; font-weight: bold; color: #333;
+            text-shadow: 1px 1px 0 #fff, -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff;">${labelText}</div>
+        </div>`,
+        iconSize: [150, 28],
+        iconAnchor: [12, 14]
+      });
+    }
+    
+    function createPhoneIcon(sailNum, heading) {
+      return createBoatIcon(sailNum, heading);
+    }
+    
+    let autoFitDone = false;
+    
+    function getTrackColor(sailNum) {
+      const country = getCountryFromSail(sailNum);
+      const colors = nationalColors[country] || nationalColors['default'];
+      return colors.bg;
+    }
+    
+    function updateBoat(boat) {
+      boats.set(boat.boatId, boat);
+      const sailNum = boat.boatId || '';
+      const heading = boat.cog || boat.heading || 0;
+      const skipperName = boat.name || '';
+      
+      const isNew = !boatMarkers.has(boat.boatId);
+      
+      if (!boatTrackPoints.has(boat.boatId)) {
+        boatTrackPoints.set(boat.boatId, []);
+      }
+      const points = boatTrackPoints.get(boat.boatId);
+      points.push([boat.lat, boat.lon]);
+      if (points.length > 500) points.shift();
+      
+      if (boatTracks.has(boat.boatId)) {
+        boatTracks.get(boat.boatId).setLatLngs(points);
+      } else {
+        const trackColor = getTrackColor(sailNum);
+        const track = L.polyline(points, { color: trackColor, weight: 3, opacity: 0.8 });
+        if (showTracks && !hiddenDevices.has(boat.boatId)) track.addTo(map);
+        boatTracks.set(boat.boatId, track);
+      }
+      
+      if (boatMarkers.has(boat.boatId)) {
+        const marker = boatMarkers.get(boat.boatId);
+        marker.setLatLng([boat.lat, boat.lon]);
+        marker.setIcon(createBoatIcon(sailNum, heading, skipperName));
+      } else {
+        const marker = L.marker([boat.lat, boat.lon], { icon: createBoatIcon(sailNum, heading, skipperName) })
+          .addTo(map)
+          .bindPopup(`<b>${skipperName || sailNum}</b><br>Speed: ${(boat.sog || 0).toFixed(1)} kn`);
+        boatMarkers.set(boat.boatId, marker);
+      }
+      
+      if (isNew && !autoFitDone) {
+        autoFitDone = true;
+        setTimeout(fitAllBoats, 500);
+      }
+      
+      updateCounts();
+      updateList();
+    }
+    
+    function updatePhone(phone) {
+      const boatId = phone.boatId || phone.deviceId;
+      if (boats.has(boatId)) return;
+      updateBoat({
+        boatId: boatId,
+        name: phone.name || phone.deviceId,
+        lat: phone.lat,
+        lon: phone.lon,
+        sog: (phone.speed || 0) * 1.94384,
+        cog: phone.heading || 0
+      });
+    }
+    
+    function removeBoat(boatId) {
+      boats.delete(boatId);
+      if (boatMarkers.has(boatId)) {
+        map.removeLayer(boatMarkers.get(boatId));
+        boatMarkers.delete(boatId);
+      }
+      if (boatTracks.has(boatId)) {
+        map.removeLayer(boatTracks.get(boatId));
+        boatTracks.delete(boatId);
+        boatTrackPoints.delete(boatId);
+      }
+      updateCounts();
+      updateList();
+    }
+    
+    function removePhone(deviceId) {
+      phones.delete(deviceId);
+      if (phoneMarkers.has(deviceId)) {
+        map.removeLayer(phoneMarkers.get(deviceId));
+        phoneMarkers.delete(deviceId);
+      }
+      updateCounts();
+      updateList();
+    }
+    
+    function updateCounts() {
+      boatCount.textContent = boats.size;
+    }
+    
+    function updateList() {
+      let items = [];
+      
+      boats.forEach((b, id) => {
+        items.push({ id, boatId: b.boatId, speed: (b.sog || 0).toFixed(1), lat: b.lat, lon: b.lon });
+      });
+      phones.forEach((p, id) => {
+        items.push({ id, boatId: p.name || id, speed: ((p.speed || 0) * 1.94384).toFixed(1), lat: p.lat, lon: p.lon });
+      });
+      
+      if (items.length === 0) {
+        itemList.innerHTML = '<div class="empty-state">No boats connected</div>';
+        return;
+      }
+      
+      itemList.innerHTML = items.map(item => {
+        const isHidden = hiddenDevices.has(item.id);
+        return `
+          <div class="item">
+            <button class="toggle-btn ${isHidden ? 'hidden' : ''}" onclick="toggleDevice('${item.id}')">✓</button>
+            <div class="item-content" onclick="focusItem('${item.id}')">
+              <div class="item-id">${item.boatId}</div>
+              <div class="item-speed">${item.speed} kn</div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+    
+    window.toggleDevice = function(id) {
+      if (hiddenDevices.has(id)) {
+        hiddenDevices.delete(id);
+        if (boatMarkers.has(id)) boatMarkers.get(id).addTo(map);
+        if (phoneMarkers.has(id)) phoneMarkers.get(id).addTo(map);
+        if (boatTracks.has(id)) boatTracks.get(id).addTo(map);
+      } else {
+        hiddenDevices.add(id);
+        if (boatMarkers.has(id)) map.removeLayer(boatMarkers.get(id));
+        if (phoneMarkers.has(id)) map.removeLayer(phoneMarkers.get(id));
+        if (boatTracks.has(id)) map.removeLayer(boatTracks.get(id));
+      }
+      updateList();
+    };
+    
+    window.focusItem = function(id) {
+      const marker = boatMarkers.get(id) || phoneMarkers.get(id);
+      if (marker) {
+        map.setView(marker.getLatLng(), 16);
+        marker.openPopup();
+      }
+    };
+    
+    let ws;
+    function connect() {
+      const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+      ws = new WebSocket(`${protocol}//${location.host}/ws`);
+      
+      ws.onopen = () => {
+        wsDot.classList.remove('disconnected');
+      };
+      
+      ws.onmessage = (e) => {
+        const msg = JSON.parse(e.data);
+        
+        if (msg.type === 'init') {
+          (msg.devices || []).forEach(updateBoat);
+        } else if (msg.type === 'boat_update') {
+          updateBoat(msg.boat);
+        } else if (msg.type === 'device_update') {
+          updateBoat(msg.device || msg.boat);
+          if (shouldFollowDevice && msg.device && (msg.device.deviceId === followDevice || msg.device.boatId === followDevice)) {
+            map.setView([msg.device.lat, msg.device.lon], map.getZoom());
+          }
+        } else if (msg.type === 'phone_update') {
+          updatePhone(msg.phone);
+        } else if (msg.type === 'boat_disconnect' || msg.type === 'device_disconnect') {
+          removeBoat(msg.boatId || msg.deviceId);
+        } else if (msg.type === 'phone_disconnect') {
+          removePhone(msg.deviceId);
+        }
+      };
+      
+      ws.onclose = () => {
+        wsDot.classList.add('disconnected');
+        setTimeout(connect, 2000);
+      };
+    }
+    
+    connect();
+    
+    async function loadInitial() {
+      try {
+        const [devicesRes, historyRes] = await Promise.all([
+          fetch('/api/devices'),
+          fetch('/api/history/devices')
+        ]);
+        const devicesData = await devicesRes.json();
+        const historyData = await historyRes.json();
+        
+        const devices = historyData.devices || historyData;
+        if (devices && typeof devices === 'object') {
+          for (const [deviceId, points] of Object.entries(devices)) {
+            if (points.length > 0) {
+              const trackPoints = points.map(p => [p.lat, p.lon]);
+              boatTrackPoints.set(deviceId, trackPoints);
+              const trackColor = getTrackColor(deviceId);
+              const track = L.polyline(trackPoints, { color: trackColor, weight: 3, opacity: 0.8 }).addTo(map);
+              boatTracks.set(deviceId, track);
+              
+              const lastPt = points[points.length - 1];
+              boats.set(deviceId, { boatId: deviceId, name: lastPt.name || deviceId, lat: lastPt.lat, lon: lastPt.lon, sog: lastPt.sog || 0, cog: lastPt.cog || 0 });
+              const marker = L.marker([lastPt.lat, lastPt.lon], { icon: createBoatIcon(deviceId, lastPt.cog || 0) })
+                .addTo(map)
+                .bindPopup(`<b>${lastPt.name || deviceId}</b><br>Speed: ${(lastPt.sog || 0).toFixed(1)} kn`);
+              boatMarkers.set(deviceId, marker);
+            }
+          }
+          updateCounts();
+          updateList();
+          setTimeout(fitAllBoats, 500);
+        }
+        
+        (devicesData.devices || []).forEach(updateBoat);
+      } catch (e) {
+        console.error('Failed to load initial data', e);
+      }
+    }
+    
+    loadInitial();
+  </script>
+</body>
+</html>
