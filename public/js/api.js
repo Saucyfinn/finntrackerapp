@@ -79,7 +79,13 @@
     // GET /races → { ok:true, races:[...] }
     async getRaces() {
       const data = await apiCall('/races');
-      return data.races || [];
+      const races = data.races || [];
+      // Normalize: API may return { raceId, title } or { id, name } depending on R2 vs fallback
+      return races.map(r => ({
+        ...r,
+        raceId: r.raceId || r.id,
+        title: r.title || r.name || r.label || r.raceId || r.id,
+      }));
     },
 
     // GET /fleet/static → { ok:true, fleet:[...] } for boat list metadata

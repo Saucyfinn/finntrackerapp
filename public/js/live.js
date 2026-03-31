@@ -80,7 +80,7 @@
 
     const lat = boat.lat || boat.latitude;
     const lng = boat.lng || boat.longitude || boat.lon;
-    const heading = boat.cog || boat.heading || 0;
+    const heading = boat.cog || boat.heading || boat.course || 0;
 
     if (!lat || !lng) return null;
 
@@ -95,12 +95,12 @@
     const marker = L.marker([lat, lng], { icon }).addTo(map);
 
     // Popup with boat info
-    const speed = formatSpeed(boat.sog || boat.speed);
-    const headingStr = formatHeading(boat.cog || boat.heading);
-    const time = formatTime(boat.timestamp || boat.t);
+    const speed = formatSpeed(boat.speed || boat.sog);
+    const headingStr = formatHeading(boat.cog || boat.heading || boat.course);
+    const time = formatTime(boat.timestamp || boat.t || boat.ts);
 
     marker.bindPopup(`
-      <strong>${boat.name || boat.boatName || boat.boatId}</strong><br>
+      <strong>${boat.boatName || boat.name || boat.boatId}</strong><br>
       Speed: ${speed}<br>
       Heading: ${headingStr}<br>
       Last update: ${time}
@@ -215,7 +215,7 @@
     boats.forEach((boat, boatId) => {
       const option = document.createElement('option');
       option.value = boatId;
-      option.textContent = boat.name || boat.boatName || boatId;
+      option.textContent = boat.boatName || boat.name || boatId;
       followSelect.appendChild(option);
     });
 
@@ -251,10 +251,10 @@
     sortedBoats.forEach(boat => {
       const row = document.createElement('tr');
       row.innerHTML = `
-        <td>${boat.name || boat.boatName || boat.boatId || '—'}</td>
-        <td>${formatSpeed(boat.sog || boat.speed)}</td>
-        <td>${formatHeading(boat.cog || boat.heading)}</td>
-        <td>${formatTime(boat.timestamp || boat.t)}</td>
+        <td>${boat.boatName || boat.name || boat.boatId || '—'}</td>
+        <td>${formatSpeed(boat.speed || boat.sog)}</td>
+        <td>${formatHeading(boat.cog || boat.heading || boat.course)}</td>
+        <td>${formatTime(boat.timestamp || boat.t || boat.ts)}</td>
         <td>${boat.source || 'live'}</td>
         <td><button onclick="window.LiveTracking.selectBoat('${boat.boatId || boat.id}')">Follow</button></td>
       `;
@@ -264,25 +264,45 @@
 
   // Data processing
   function processBoatData(data) {
-    // Handle different data formats from WebSocket
-    if (data.type === 'snapshot' && data.fleet) {
-      // Snapshot: { type: "snapshot", fleet: { boatId: {...} } }
+    // Handle different data formats from WebSocket / polling
+
+    if (data.type === 'full' || data.type === 'snapshot') {
+      // Full state snapshot — boats may be an object { boatId: BoatView } or an array
       boats.clear();
-      Object.entries(data.fleet).forEach(([boatId, boatData]) => {
-        boats.set(boatId, { ...boatData, boatId });
-        updateBoatOnMap({ ...boatData, boatId });
-      });
-    } else if (data.type === 'update' && data.boat) {
-      // Update: { type: "update", boat: {...} }
-      const boat = data.boat;
-      const boatId = boat.boatId || boat.id;
-      if (boatId) {
-        boats.set(boatId, boat);
-        updateBoatOnMap(boat);
+      clearMapMarkers();
+      const boatSource = data.boats || data.fleet;
+      if (boatSource) {
+        const list = Array.isArray(boatSource) ? boatSource : Object.values(boatSource);
+        list.forEach(boat => {
+          const boatId = boat.boatId || boat.id;
+          if (boatId) {
+            boats.set(boatId, boat);
+            updateBoatOnMap(boat);
+          }
+        });
       }
+
+    } else if (data.type === 'update') {
+      // Incremental update — boat may be a string ID (with data.data holding the BoatView)
+      // or a full boat object
+      let boat;
+      if (typeof data.boat === 'string' && data.data) {
+        boat = { ...data.data, boatId: data.boat };
+      } else if (data.boat && typeof data.boat === 'object') {
+        boat = data.boat;
+      }
+      if (boat) {
+        const boatId = boat.boatId || boat.id;
+        if (boatId) {
+          boats.set(boatId, boat);
+          updateBoatOnMap(boat);
+        }
+      }
+
     } else if (Array.isArray(data)) {
-      // Direct array of boats
+      // Direct array of boats (from polling getBoats)
       boats.clear();
+      clearMapMarkers();
       data.forEach(boat => {
         const boatId = boat.boatId || boat.id;
         if (boatId) {
@@ -380,15 +400,8 @@
     if (!currentRaceId) return;
 
     try {
-      const fleetData = await window.FinnAPI.getFleet(currentRaceId);
-      console.log('Poll data:', fleetData);
-
-      // Convert fleet object to boat array format
-      const boatArray = Object.entries(fleetData.fleet || {}).map(([boatId, boatData]) => ({
-        ...boatData,
-        boatId,
-        source: 'polling'
-      }));
+      const boatArray = await window.FinnAPI.getBoats(currentRaceId);
+      console.log('Poll data:', boatArray);
 
       processBoatData(boatArray);
 
@@ -471,9 +484,16 @@
         const urlRaceId = urlParams.get('raceId');
 
         if (urlRaceId && raceSelect) {
-          // Select the race from URL if available
           const option = Array.from(raceSelect.options).find(opt => opt.value === urlRaceId);
           if (option) {
+            raceSelect.value = urlRaceId;
+            currentRaceId = urlRaceId;
+          } else {
+            // Race not in list — add it and connect anyway
+            const customOption = document.createElement('option');
+            customOption.value = urlRaceId;
+            customOption.textContent = urlRaceId;
+            raceSelect.appendChild(customOption);
             raceSelect.value = urlRaceId;
             currentRaceId = urlRaceId;
           }
